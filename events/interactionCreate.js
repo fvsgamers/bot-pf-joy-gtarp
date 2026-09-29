@@ -486,7 +486,7 @@ module.exports = (client) => {
         return interaction.reply({ content: '✅ Canal de transferência criado para avaliação!', flags: 64 });
       }
             // ========================================================
-     // ===== 5º PASSO: RECRUTADOR CLICA EM APROVAR TRANSFERÊNCIA =====
+  // ===== 5º PASSO: RECRUTADOR CLICA EM APROVAR TRANSFERÊNCIA =====
 // ========================================================
 if (interaction.isButton() && interaction.customId.startsWith('aprovarTransf-')) {
   const temPermissao = interaction.member.roles.cache.some(role =>
@@ -499,27 +499,40 @@ if (interaction.isButton() && interaction.customId.startsWith('aprovarTransf-'))
 
   await interaction.deferUpdate();
 
-  // LIMPEZA TOTAL: Extrai apenas a string numérica do ID contida após o hífen no customId
+  // 🔍 DIAGNÓSTICO 1: Ver o que o botão está trazendo de fato
+  console.log('📌 [DEBUG] customId completo do botão clicado:', interaction.customId);
+
+  // Extrai apenas a string numérica do ID contida no customId
   const matchID = interaction.customId.match(/\d+/);
+  
+  // 🔍 DIAGNÓSTICO 2: Ver o resultado bruto do Regex match
+  console.log('📌 [DEBUG] Resultado do matchID:', matchID);
+
   if (!matchID) return console.log('⚠️ Nenhum ID numérico de cargo foi encontrado no botão.');
-  const cargoEscolhido = matchID[0]; // Retorna a string pura do ID (ex: "1516662107490222099")
+  
+  // CORREÇÃO DEFINITIVA: Pega estritamente a primeira posição do array retornado pelo .match()
+  const cargoEscolhido = String(matchID[0]); 
+
+  // 🔍 DIAGNÓSTICO 3: Ver a ID final limpa antes de checar no config
+  console.log('📌 [DEBUG] cargoEscolhido (ID Limpa):', cargoEscolhido);
 
   // Busca o membro (o dono do ticket) usando o ID salvo no tópico do canal
   const membro = interaction.guild.members.cache.get(interaction.channel.topic);
   if (!membro) return console.log('⚠️ Membro dono do ticket não encontrado no servidor.');
 
-  const embedOriginal = interaction.message.embeds[0];
+  const embedOriginal = interaction.message.embeds[0]; // Voltando para índice 0 para checagem
   if (!embedOriginal) return console.log('⚠️ Nenhuma embed encontrada na mensagem.');
 
-  // CORREÇÃO: Acessa os campos usando .data.fields para evitar que retorne undefined no Discord.js v14
-  const getField = (n) => embedOriginal.data?.fields?.find(f => f.name === n)?.value || '';
+  // Acessa os campos usando .data.fields ou .fields baseado no Discord.js v14
+  const fieldsSource = embedOriginal.data?.fields || embedOriginal.fields || [];
+  const getField = (n) => fieldsSource.find(f => f.name === n)?.value || '';
 
   const id = getField('ID');
   const nome = getField('Nome');
   const cargoOrigemMencao = getField('🏢 Instituição de Origem');
   const origemID = getField('🏢 Vindo de (Origem ID)').trim(); 
 
-  // MAPEAMENTO DE SIGLAS: Vincula o ID da instituição de origem à sigla do apelido
+  // MAPEAMENTO DE SIGLAS
   const mapaSiglas = {
     "1554288806167846952": "TR.PRF",
     "1554288699745771701": "TR.PM", 
@@ -529,12 +542,17 @@ if (interaction.isButton() && interaction.customId.startsWith('aprovarTransf-'))
 
   const siglaOrigem = mapaSiglas[origemID] || "TR";
 
-  // BUSCA NO CONFIG: Procura a ID numérica diretamente no seu objeto cargosTransferencia
+  // BUSCA NO CONFIG
   const sistema = config.cargosTransferencia[cargoEscolhido];
   if (!sistema) {
-    console.log(`❌ ERRO: O ID extraído pelo bot foi "${cargoEscolhido}", mas ele não existe em config.cargosTransferencia.`);
+    console.log(`❌ ERRO: O ID extraído pelo bot foi "${cargoEscolhido}" (${typeof cargoEscolhido}), mas ele não existe em config.cargosTransferencia.`);
+    // 🔍 DIAGNÓSTICO 4: Lista quais IDs existem de verdade no seu config para comparação
+    console.log('📌 [DEBUG] IDs existentes no config.cargosTransferencia:', Object.keys(config.cargosTransferencia));
     return;
   }
+
+  // ... (o restante do seu código de setagem e registros continua igual abaixo)
+
 
   // Formata e altera o apelido com base na sigla correta
   let nickname = `[${siglaOrigem}] ${nome} | ${id}`;
