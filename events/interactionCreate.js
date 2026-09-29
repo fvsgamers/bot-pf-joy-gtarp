@@ -289,15 +289,15 @@ module.exports = (client) => {
           canalRegistro.send(mensagem);
         }
 
-        //const log = interaction.guild.channels.cache.get(config.logAprovacoes);
-        //if (log) {
-        //  log.send(`✅ ${membro.user.tag} aprovado por ${interaction.user.tag}\nCargo: ${sistema.nome}\nApelido: ${nickname}`);
-        //}
+        const log = interaction.guild.channels.cache.get(config.logAprovacoes);
+        if (log) {
+          log.send(`✅ ${membro.user.tag} aprovado por ${interaction.user.tag}\nCargo: ${sistema.nome}\nApelido: ${nickname}`);
+        }
 
-        //await interaction.message.edit({ content: '✅ Aprovado!', components: [] });
+        await interaction.message.edit({ content: '✅ Aprovado!', components: [] });
 
-        //setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
-      //}
+        setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
+      }
 
       // ===== REPROVAR =====
       if (interaction.isButton() && interaction.customId === 'reprovar') {
