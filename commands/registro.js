@@ -38,12 +38,12 @@ module.exports = {
       
       new ButtonBuilder()
         .setCustomId('abrir_formulario')
-        .setLabel('📋 Iniciar Registro')
+        .setLabel('📋 Registro')
         .setStyle(ButtonStyle.Primary),
 
       new ButtonBuilder()
         .setCustomId('abrir_transferencia')
-        .setLabel('📋 Iniciar Transferência')
+        .setLabel('📋 Transferência')
         .setStyle(ButtonStyle.Primary)
     );
 
