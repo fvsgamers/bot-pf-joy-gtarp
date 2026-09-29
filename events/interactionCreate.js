@@ -322,6 +322,39 @@ module.exports = (client) => {
 
       // ====================== Lógica da Transferência ========================== //
 
+      // ===== 3º PASSO: APÓS ESCOLHER O CARGO, ABRE O MODAL DADOS =====
+      // ========================================================
+      if (interaction.isStringSelectMenu() && interaction.customId === 'transf_select_cargo') {
+        const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+
+        const dados = dadosTemp[interaction.user.id];
+        if (!dados) return interaction.reply({ content: '❌ Sessão expirada. Inicie novamente.', flags: 64 });
+
+        // GARANTIA: Extrai a string pura tirando-a de dentro do Array retornado pelo select menu
+        dados.cargoDesejado = String(interaction.values[0]).trim(); 
+
+        const modal = new ModalBuilder()
+          .setCustomId('transf_modal_dados')
+          .setTitle('📝 Dados do Transferido');
+
+        modal.addComponents(
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder().setCustomId('nome').setLabel('Nome').setStyle(TextInputStyle.Short).setRequired(true)
+          ),
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder().setCustomId('sobrenome').setLabel('Sobrenome').setStyle(TextInputStyle.Short).setRequired(true)
+          ),
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder().setCustomId('id').setLabel('ID (somente números)').setStyle(TextInputStyle.Short).setRequired(true)
+          ),
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder().setCustomId('telefone').setLabel('Telefone (in-game)').setStyle(TextInputStyle.Short).setRequired(true)
+          )
+        );
+
+        return interaction.showModal(modal);
+      }
+      
       // ========================================================
       // ===== 1º PASSO: CLIQUE NO BOTÃO INICIAR TRANSFERÊNCIA =====
       // ========================================================
@@ -366,7 +399,7 @@ module.exports = (client) => {
         const nomeInstituicao = config.instituicoesOrigem[dados.origemBatalhaoID] || 'Instituição Desconhecida';
 
         // Monta a lista de cargos desejados
-        const cargosOptions = Object.entries(config.cargosTransferencia).map(([id, data]) => {
+        const cargosOptionsT = Object.entries(config.cargosTransferencia).map(([id, data]) => {
           const role = interaction.guild.roles.cache.get(id);
           return {
             label: role ? role.name : data.nome,
@@ -374,53 +407,19 @@ module.exports = (client) => {
           };
         });
 
-        const selectCargo = new ActionRowBuilder().addComponents(
+        const selectCargoT = new ActionRowBuilder().addComponents(
           new StringSelectMenuBuilder()
             .setCustomId('transf_select_cargo')
             .setPlaceholder('Selecione o cargo desejado')
-            .addOptions(cargosOptions)
+            .addOptions(cargosOptionsT)
         );
 
         return interaction.update({
           content: `🏢 Origem selecionada: **${nomeInstituicao}**\n\nAgora, selecione o **Cargo Desejado**:`,
-          components: [selectCargo]
+          components: [selectCargoT]
         });
       }
-
-      // ===== 3º PASSO: APÓS ESCOLHER O CARGO, ABRE O MODAL DADOS =====
-      // ========================================================
-      if (interaction.isStringSelectMenu() && interaction.customId === 'transf_select_cargo') {
-        const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
-
-        const dados = dadosTemp[interaction.user.id];
-        if (!dados) return interaction.reply({ content: '❌ Sessão expirada. Inicie novamente.', flags: 64 });
-
-        // GARANTIA: Extrai a string pura tirando-a de dentro do Array retornado pelo select menu
-        dados.cargoDesejado = String(interaction.values[0]).trim(); 
-
-        const modal = new ModalBuilder()
-          .setCustomId('transf_modal_dados')
-          .setTitle('📝 Dados do Transferido');
-
-        modal.addComponents(
-          new ActionRowBuilder().addComponents(
-            new TextInputBuilder().setCustomId('nome').setLabel('Nome').setStyle(TextInputStyle.Short).setRequired(true)
-          ),
-          new ActionRowBuilder().addComponents(
-            new TextInputBuilder().setCustomId('sobrenome').setLabel('Sobrenome').setStyle(TextInputStyle.Short).setRequired(true)
-          ),
-          new ActionRowBuilder().addComponents(
-            new TextInputBuilder().setCustomId('id').setLabel('ID (somente números)').setStyle(TextInputStyle.Short).setRequired(true)
-          ),
-          new ActionRowBuilder().addComponents(
-            new TextInputBuilder().setCustomId('telefone').setLabel('Telefone (in-game)').setStyle(TextInputStyle.Short).setRequired(true)
-          )
-        );
-
-        return interaction.showModal(modal);
-      }
-
-       // ===== 4º PASSO: RECEBE O MODAL E CRIA O TICKET DE TRANSF =====
+      // ===== 4º PASSO: RECEBE O MODAL E CRIA O TICKET DE TRANSF =====
       // ========================================================
       if (interaction.isModalSubmit() && interaction.customId === 'transf_modal_dados') {
         const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
