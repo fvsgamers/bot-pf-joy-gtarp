@@ -378,12 +378,12 @@ module.exports = (client) => {
           new StringSelectMenuBuilder()
             .setCustomId('transf_select_cargo')
             .setPlaceholder('Selecione o cargo desejado')
-            .addOptions(cargosOptionsT)
+            .addOptions(cargosOptions)
         );
 
         return interaction.update({
           content: `🏢 Origem selecionada: **${nomeInstituicao}**\n\nAgora, selecione o **Cargo Desejado**:`,
-          components: [selectCargo]
+          components: [selectCargoT]
         });
       }
 
@@ -529,7 +529,7 @@ module.exports = (client) => {
         const siglaOrigem = mapaSiglas[origemID] || "TR";
 
         // Valida se o cargo desejado existe nas configurações do seu sistema
-        const sistema = config.cargosSistema[cargoEscolhido];
+        const sistema = config.cargosTransferencia[cargoEscolhido];
         if (!sistema) {
           console.log(`❌ ERRO: O ID extraído pelo bot foi "${cargoEscolhido}", mas ele não existe em config.cargosSistema.`);
           return;
