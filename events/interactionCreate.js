@@ -378,7 +378,7 @@ module.exports = (client) => {
           new StringSelectMenuBuilder()
             .setCustomId('transf_select_cargo')
             .setPlaceholder('Selecione o cargo desejado')
-            .addOptions(cargosOptions)
+            .addOptions(cargosOptionsT)
         );
 
         return interaction.update({
