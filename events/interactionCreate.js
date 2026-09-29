@@ -279,7 +279,7 @@ module.exports = (client) => {
         //await membro.roles.remove(config.cargoRemover);
 
         // ===== REGISTRO CENTRAL =====
-        const canalRegistro = interaction.guild.channels.cache.get('1554300382954659951');
+        const canalRegistro = interaction.guild.channels.cache.get('1554307411202805821');
 
         // Adicionada a trava de segurança para garantir que .send() exista
         if (canalRegistro && typeof canalRegistro.send === 'function') {
