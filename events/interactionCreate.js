@@ -281,23 +281,29 @@ module.exports = (client) => {
         // ===== REGISTRO CENTRAL =====
         const canalRegistro = interaction.guild.channels.cache.get('1554300382954659951');
 
-        if (canalRegistro) {
+        // Adicionada a trava de segurança para garantir que .send() exista
+        if (canalRegistro && typeof canalRegistro.send === 'function') {
           const linha = `| ----------------------------------------------------------------|`;
 
           const mensagem = `\n📜 **Registro**\n\n👤 **Nome:** ${nome}\n🆔 **Sobrenome:** ${sobrenome}\n🆔 **ID:** ${id}\n📞 **Telefone:** ${telefone}\n🏷️ **Cargo:** ${sistema.nome}\n🧑‍💼 **Aprovado por:** ${interaction.member.displayName}\n\n${linha}\n`;
 
-          canalRegistro.send(mensagem);
+          await canalRegistro.send(mensagem).catch(err => console.error("Erro ao enviar no Registro Central:", err));
+        } else {
+          console.warn("⚠️ O canal '1554300382954659951' não foi encontrado no cache ou não aceita mensagens (pode ser uma categoria). Pulando para não travar a finalização.");
         }
 
+        // ===== LOG DE APROVAÇÕES =====
         const log = interaction.guild.channels.cache.get(config.logAprovacoes);
-        if (log) {
-          log.send(`✅ ${membro.user.tag} aprovado por ${interaction.user.tag}\nCargo: ${sistema.nome}\nApelido: ${nickname}`);
+        if (log && typeof log.send === 'function') {
+          await log.send(`✅ ${membro.user.tag} aprovado por ${interaction.user.tag}\nCargo: ${sistema.nome}\nApelido: ${nickname}`).catch(err => console.error("Erro ao enviar no Log:", err));
         }
 
+        // ===== FINALIZAÇÃO (Agora vai rodar sem travar!) =====
         await interaction.message.edit({ content: '✅ Aprovado!', components: [] });
 
         setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
       }
+
 
       // ===== REPROVAR =====
       if (interaction.isButton() && interaction.customId === 'reprovar') {
