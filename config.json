@@ -18,6 +18,13 @@
 
   "logAprovacoes": "1521662864077754410",
   "cargoStreamer": "1516662107570180116",
+
+  "instituicoesOrigem": {
+    "1554288806167846952": "Polícia Rodoviária Federal",
+    "1554288699745771701": "Polícia Militar",
+    "1554288753672065084": "Polícia Civil",
+    "1554288869917065236": "Exército Brasileiro"
+  },
   
   "cargosSistema": {
     "1516662107490222099": {
