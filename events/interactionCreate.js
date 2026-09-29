@@ -366,7 +366,7 @@ module.exports = (client) => {
         const nomeInstituicao = config.instituicoesOrigem[dados.origemBatalhaoID] || 'Instituição Desconhecida';
 
         // Monta a lista de cargos desejados
-        const cargosOptionsT = Object.entries(config.cargosTransferencia).map(([id, data]) => {
+        const cargosOptions = Object.entries(config.cargosTransferencia).map(([id, data]) => {
           const role = interaction.guild.roles.cache.get(id);
           return {
             label: role ? role.name : data.nome,
@@ -374,16 +374,16 @@ module.exports = (client) => {
           };
         });
 
-        const selectCargoT = new ActionRowBuilder().addComponents(
+        const selectCargo = new ActionRowBuilder().addComponents(
           new StringSelectMenuBuilder()
             .setCustomId('transf_select_cargo')
             .setPlaceholder('Selecione o cargo desejado')
-            .addOptions(cargosOptionsT)
+            .addOptions(cargosOptions)
         );
 
         return interaction.update({
           content: `🏢 Origem selecionada: **${nomeInstituicao}**\n\nAgora, selecione o **Cargo Desejado**:`,
-          components: [selectCargoT]
+          components: [selectCargo]
         });
       }
 
