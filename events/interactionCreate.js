@@ -499,8 +499,10 @@ module.exports = (client) => {
 
         await interaction.deferUpdate();
 
-        // Extrai o ID do cargo com precisão cortando o prefixo do botão
-        const cargoEscolhido = interaction.customId.replace('aprovarTransf-', '').trim();
+        // BLINDAGEM TOTAL: Extrai apenas os números purificados do ID do cargo do customId
+        const matchID = interaction.customId.match(/\d+/);
+        if (!matchID) return console.log('⚠️ Nenhum ID numérico de cargo foi encontrado no botão.');
+        const cargoEscolhido = String(matchID[0]); // Pega o primeiro grupo numérico puro encontrado
 
         // Busca o membro (o dono do ticket) usando o ID salvo no tópico do canal
         const membro = interaction.guild.members.cache.get(interaction.channel.topic);
@@ -517,7 +519,6 @@ module.exports = (client) => {
         const origemID = getField('🏢 Vindo de (Origem ID)').trim(); // Coleta o ID da instituição direto da Embed
 
         // MAPEAMENTO DE SIGLAS: Vincula o ID do cargo selecionado à sigla do apelido
-        // SUBSTITUA OS NÚMEROS ABAIXO PELOS IDS REAIS DOS SEUS CARGOS DE INSTITUIÇÃO
         const mapaSiglas = {
           "1554288806167846952": "TR.PRF",
           "1554288699745771701": "TR.PM", 
@@ -530,7 +531,7 @@ module.exports = (client) => {
         // Valida se o cargo desejado existe nas configurações do seu sistema
         const sistema = config.cargosSistema[cargoEscolhido];
         if (!sistema) {
-          console.log(`❌ ERRO: O ID "${cargoEscolhido}" lido do botão não está em config.cargosSistema.`);
+          console.log(`❌ ERRO: O ID extraído pelo bot foi "${cargoEscolhido}", mas ele não existe em config.cargosSistema.`);
           return;
         }
 
@@ -563,6 +564,7 @@ module.exports = (client) => {
         await interaction.message.edit({ content: '✅ Transferência Finalizada!', components: [] });
         setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
       }
+
     } catch (err) {
       console.error('💥 ERRO DETALHADO:', err);
 
