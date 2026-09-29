@@ -14,8 +14,8 @@ module.exports = {
 
     // IDs dos cargos que PODEM usar o comando
     const cargosPermitidos = [
-      '1516662107599409195',
       '1516662107599409196',
+      '1516662107599409195',
       '1516662107586953233',
       '1516662107586953232'
     ];
@@ -37,12 +37,19 @@ module.exports = {
     const button = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId('abrir_formulario')
-        .setLabel('📋 Fazer Registro')
+        .setLabel('📋 Iniciar Registro')
+        .setStyle(ButtonStyle.Primary)
+    );
+
+     const button = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('abrir_transferencia')
+        .setLabel('📋 Fazer Transferência')
         .setStyle(ButtonStyle.Primary)
     );
 
     await interaction.reply({
-      content: 'Clique abaixo para iniciar seu recrutamento:',
+      content: 'Escolha uma opção abaixo:',
       components: [button]
     });
   }
