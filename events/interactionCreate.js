@@ -322,12 +322,12 @@ module.exports = (client) => {
 
       // ====================== Lógica da Transferência ========================== //
 
+            // ========================================================
       // ===== 1º PASSO: CLIQUE NO BOTÃO INICIAR TRANSFERÊNCIA =====
       // ========================================================
       if (interaction.isButton() && interaction.customId === 'abrir_transferencia') {
         const { StringSelectMenuBuilder, ActionRowBuilder } = require('discord.js');
 
-        // Cria a lista com os 3 batalhões fixos de origem
         const selectOrigem = new ActionRowBuilder().addComponents(
           new StringSelectMenuBuilder()
             .setCustomId('transf_select_origem')
@@ -335,11 +335,11 @@ module.exports = (client) => {
             .addOptions([
               { label: 'Polícia Rodoviária Federal (PRF)', value: 'Polícia Rodoviária Federal' },
               { label: 'Polícia Civil', value: 'Polícia Civil' },
-              { label: 'Exército Brasileiro', value: 'Exército Brasileiro' }
+              { label: 'Exército Brasileiro', value: 'Exército Brasileiro' },
+              { label: 'Polícia Militar', value: 'Polícia Militar' }
             ])
         );
 
-        // Cria a estrutura temporária se não existir
         dadosTemp[interaction.user.id] = { tipoFlow: 'transferencia' };
 
         return interaction.reply({
@@ -358,15 +358,16 @@ module.exports = (client) => {
         const dados = dadosTemp[interaction.user.id];
         if (!dados) return interaction.reply({ content: '❌ Sessão expirada. Inicie novamente.', flags: 64 });
 
-        dados.origemBatalhao = interaction.values[0]; // Salva PRF, Polícia Civil ou Exército
+        // CORREÇÃO 1: Pegamos a string pura usando o índice [0] (Texto: 'Polícia Civil', 'Polícia Militar', etc.)
+        dados.origemBatalhao = interaction.values[0]; 
 
-        // Puxa exatamente a mesma lista de cargos que você já tem no config.json
+        // Monta a lista extraindo as chaves (que já são os IDs em formato string limpa)
         const cargosOptions = Object.entries(config.cargosSistema)
           .map(([id, data]) => {
             const role = interaction.guild.roles.cache.get(id);
             return {
               label: role ? role.name : data.nome,
-              value: id
+              value: String(id) // CORREÇÃO 2: Força o ID a ser enviado como texto limpo
             };
           });
 
@@ -378,7 +379,7 @@ module.exports = (client) => {
         );
 
         return interaction.update({
-          content: `🏢 Origem selecionada: **${dados.origemBatalhao}**\n Now, selecione o **Cargo Desejado**:`,
+          content: `🏢 Origem selecionada: **${dados.origemBatalhao}**\n\nAgora, selecione o **Cargo Desejado**:`,
           components: [selectCargo]
         });
       }
@@ -386,14 +387,13 @@ module.exports = (client) => {
       // ========================================================
       // ===== 3º PASSO: APÓS ESCOLHER O CARGO, ABRE O MODAL DADOS =====
       // ========================================================
-      if (interaction.isStringSelectMenu() && interaction.customId === 'transf_select_cargo') {
-        const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
-
+            if (interaction.isStringSelectMenu() && interaction.customId === 'transf_select_cargo') {
         const dados = dadosTemp[interaction.user.id];
         if (!dados) return interaction.reply({ content: '❌ Sessão expirada. Inicie novamente.', flags: 64 });
 
-        dados.cargoDesejado = interaction.values[0]; // Salva o ID do cargo escolhido
-
+        // CORREÇÃO AQUI: Salva a string pura do ID do cargo usando [0] em vez de salvar o array completo
+        dados.cargoDesejado = interaction.values[0]; 
+        
         const modal = new ModalBuilder()
           .setCustomId('transf_modal_dados')
           .setTitle('📝 Dados do Transferido');
