@@ -435,12 +435,12 @@ module.exports = (client) => {
 
         const nome = interaction.fields.getTextInputValue('nome');
         const sobrenome = interaction.fields.getTextInputValue('sobrenome');
-        const id = interaction.fields.getTextInputValue('id');
+        const id = interaction.fields.getTextInputValue('id').trim(); // .trim() remove espaços invisíveis
         const telefone = interaction.fields.getTextInputValue('telefone');
 
-        // VALIDAÇÃO CORRIGIDA: Aceita apenas números puros de ponta a ponta
-        if (!/^\d+\$/.test(id)) {
-          return interaction.reply({ content: '❌ ID inválido! Digite apenas números.', flags: 64 });
+        // NOVA VALIDAÇÃO BLINDADA: Se não for um número válido ou se estiver vazio
+        if (isNaN(id) || id === '') {
+          return interaction.reply({ content: '❌ ID inválido! Digite apenas números no campo de ID.', flags: 64 });
         }
 
         const nomeCanal = `transf-${nome.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`;
