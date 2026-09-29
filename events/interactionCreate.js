@@ -486,84 +486,87 @@ module.exports = (client) => {
         return interaction.reply({ content: '✅ Canal de transferência criado para avaliação!', flags: 64 });
       }
             // ========================================================
-      // ===== 5º PASSO: RECRUTADOR CLICA EM APROVAR TRANSFERÊNCIA =====
-      // ========================================================
-      if (interaction.isButton() && interaction.customId.startsWith('aprovarTransf-')) {
-        const temPermissao = interaction.member.roles.cache.some(role =>
-          config.cargosRecrutadores.includes(role.id)
-        );
+     // ===== 5º PASSO: RECRUTADOR CLICA EM APROVAR TRANSFERÊNCIA =====
+// ========================================================
+if (interaction.isButton() && interaction.customId.startsWith('aprovarTransf-')) {
+  const temPermissao = interaction.member.roles.cache.some(role =>
+    config.cargosRecrutadores.includes(role.id)
+  );
 
-        if (!temPermissao) {
-          return interaction.reply({ content: '❌ Sem permissão.', flags: 64 });
-        }
+  if (!temPermissao) {
+    return interaction.reply({ content: '❌ Sem permissão.', flags: 64 });
+  }
 
-        await interaction.deferUpdate();
+  await interaction.deferUpdate();
 
-        // BLINDAGEM TOTAL: Extrai apenas os números purificados do ID do cargo do customId
-        const matchID = interaction.customId.match(/\d+/);
-        if (!matchID) return console.log('⚠️ Nenhum ID numérico de cargo foi encontrado no botão.');
-        const cargoEscolhido = String(matchID[0]); // Pega o primeiro grupo numérico puro encontrado
+  // BLINDAGEM TOTAL: Extrai apenas os números purificados do ID do cargo do customId
+  const matchID = interaction.customId.match(/\d+/);
+  if (!matchID) return console.log('⚠️ Nenhum ID numérico de cargo foi encontrado no botão.');
+  const cargoEscolhido = String(matchID[0]); // Pega o primeiro grupo numérico puro encontrado
 
-        // Busca o membro (o dono do ticket) usando o ID salvo no tópico do canal
-        const membro = interaction.guild.members.cache.get(interaction.channel.topic);
-        if (!membro) return console.log('⚠️ Membro dono do ticket não encontrado no servidor.');
+  // Busca o membro (o dono do ticket) usando o ID salvo no tópico do canal
+  const membro = interaction.guild.members.cache.get(interaction.channel.topic);
+  if (!membro) return console.log('⚠️ Membro dono do ticket não encontrado no servidor.');
 
-        const embedOriginal = interaction.message.embeds[0];
-        if (!embedOriginal) return console.log('⚠️ Nenhuma embed encontrada na mensagem.');
+  const embedOriginal = interaction.message.embeds[0];
+  if (!embedOriginal) return console.log('⚠️ Nenhuma embed encontrada na mensagem.');
 
-        const getField = (n) => embedOriginal.fields.find(f => f.name === n)?.value || '';
+  // CORREÇÃO: Utilizando .data.fields para garantir compatibilidade com as embeds recebidas
+  const getField = (n) => embedOriginal.data?.fields?.find(f => f.name === n)?.value || '';
 
-        const id = getField('ID');
-        const nome = getField('Nome');
-        const cargoOrigemMencao = getField('🏢 Instituição de Origem');
-        const origemID = getField('🏢 Vindo de (Origem ID)').trim(); // Coleta o ID da instituição direto da Embed
+  const id = getField('ID');
+  const nome = getField('Nome');
+  const cargoOrigemMencao = getField('🏢 Instituição de Origem');
+  const origemID = getField('🏢 Vindo de (Origem ID)').trim(); // Coleta o ID da instituição direto da Embed
 
-        // MAPEAMENTO DE SIGLAS: Vincula o ID do cargo selecionado à sigla do apelido
-        const mapaSiglas = {
-          "1554288806167846952": "TR.PRF",
-          "1554288699745771701": "TR.PM", 
-          "1554288753672065084": "TR.PC", 
-          "1554288869917065236": "TR.EB" 
-        };
+  // MAPEAMENTO DE SIGLAS: Vincula o ID do cargo selecionado à sigla do apelido
+  const mapaSiglas = {
+    "1554288806167846952": "TR.PRF",
+    "1554288699745771701": "TR.PM", 
+    "1554288753672065084": "TR.PC", 
+    "1554288869917065236": "TR.EB" 
+  };
 
-        const siglaOrigem = mapaSiglas[origemID] || "TR";
+  const siglaOrigem = mapaSiglas[origemID] || "TR";
 
-        // Valida se o cargo desejado existe nas configurações do seu sistema
-        const sistema = config.cargosTransferencia[cargoEscolhido];
-        if (!sistema) {
-          console.log(`❌ ERRO: O ID extraído pelo bot foi "${cargoEscolhido}", mas ele não existe em config.cargosSistema.`);
-          return;
-        }
+  // IMPORTANTE: Altere aqui para config.cargosSistema caso suas configurações fiquem lá
+  const sistema = config.cargosTransferencia?.[cargoEscolhido] || config.cargosSistema?.[cargoEscolhido];
+  if (!sistema) {
+    console.log(`❌ ERRO: O ID extraído pelo bot foi "${cargoEscolhido}", mas ele não existe nas configurações.`);
+    return;
+  }
 
-        // Formata e altera o apelido com base na sigla correta
-        let nickname = `[${siglaOrigem}] ${nome} | ${id}`;
-        if (nickname.length > 32) nickname = `[${siglaOrigem}] ${nome}`.slice(0, 32);
-        await membro.setNickname(nickname).catch((err) => console.error("Erro ao alterar nickname:", err.message));
+  // Formata e altera o apelido com base na sigla correta
+  let nickname = `[${siglaOrigem}] ${nome} | ${id}`;
+  if (nickname.length > 32) nickname = `[${siglaOrigem}] ${nome}`.slice(0, 32);
+  await membro.setNickname(nickname).catch((err) => console.error("Erro ao alterar nickname:", err.message));
 
-        // Adiciona os cargos e as tags adicionais
-        const cargos = [
-          cargoEscolhido,
-          ...(sistema.extra || [])
-        ];
-        await membro.roles.add(cargos).catch((err) => console.error("Erro ao adicionar cargos:", err.message));
+  // Adiciona os cargos e as tags adicionais
+  const cargos = [
+    cargoEscolhido,
+    ...(sistema.extra || [])
+  ];
+  await membro.roles.add(cargos).catch((err) => console.error("Erro ao adicionar cargos:", err.message));
 
-        // ===== REGISTRO CENTRAL DE TRANSFERÊNCIA =====
-        const canalRegistro = interaction.guild.channels.cache.get('1554307411202805821');
-        if (canalRegistro && typeof canalRegistro.send === 'function') {
-          const linha = `| ----------------------------------------------------------------|`;
-          const mensagem = `\n🔄 **Registro de Transferência**\n\n👤 **Nome:** ${nome}\n🆔 **ID:** ${id}\n🏢 **Origem:** ${cargoOrigemMencao}\n🏷️ **Cargo Concedido:** ${sistema.nome}\n🧑‍💼 **Processado por:** ${interaction.member.displayName}\n\n${linha}\n`;
-          await canalRegistro.send(mensagem).catch(err => console.error("Erro no Registro Central:", err));
-        }
+  // ===== REGISTRO CENTRAL DE TRANSFERÊNCIA =====
+  const canalRegistro = interaction.guild.channels.cache.get('1554307411202805821');
+  if (canalRegistro && typeof canalRegistro.send === 'function') {
+    const linha = `| ----------------------------------------------------------------|`;
+    const mensagem = `\n🔄 **Registro de Transferência**\n\n👤 **Nome:** ${nome}\n🆔 **ID:** ${id}\n🏢 **Origem:** ${cargoOrigemMencao}\n🏷️ **Cargo Concedido:** ${sistema.nome}\n🧑‍💼 **Processado por:** ${interaction.member.displayName}\n\n${linha}\n`;
+    await canalRegistro.send(mensagem).catch(err => console.error("Erro no Registro Central:", err));
+  }
 
-        // ===== LOG DE APROVAÇÕES =====
-        const log = interaction.guild.channels.cache.get(config.logAprovacoes);
-        if (log && typeof log.send === 'function') {
-          await log.send(`🔄 ${membro.user.tag} transferido da instituição **${cargoOrigemMencao}** por ${interaction.user.tag}\nCargo: ${sistema.nome}`).catch(err => console.error(err));
-        }
+  // ===== LOG DE APROVAÇÕES =====
+  const log = interaction.guild.channels.cache.get(config.logAprovacoes);
+  if (log && typeof log.send === 'function') {
+    await log.send(`🔄 ${membro.user.tag} transferido da instituição **${cargoOrigemMencao}** por ${interaction.user.tag}\nCargo: ${sistema.nome}`).catch(err => console.error(err));
+  }
 
-        await interaction.message.edit({ content: '✅ Transferência Finalizada!', components: [] });
-        setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
-      }
+  // Finaliza a mensagem e deleta o canal do ticket após 5 segundos
+  await interaction.message.edit({ content: '✅ Transferência Finalizada!', components: [] });
+  setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
+}
+
 
     } catch (err) {
       console.error('💥 ERRO DETALHADO:', err);
