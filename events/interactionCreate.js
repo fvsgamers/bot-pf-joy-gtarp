@@ -446,7 +446,7 @@ if (
     });
   }
 
-  const selectCargo =
+  const selectCargoT =
     new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()
         .setCustomId('transf_select_cargo')
@@ -458,7 +458,7 @@ if (
     content:
       `🏢 **Instituição de origem:** ${nomeInstituicao}\n\n` +
       `🏷️ **Selecione agora o cargo desejado:**`,
-    components: [selectCargo]
+    components: [selectCargoT]
   });
 }
 
