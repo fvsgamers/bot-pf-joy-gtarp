@@ -271,12 +271,12 @@ module.exports = (client) => {
 
         const cargos = [
           cargoEscolhido,
-          config.cargoAprovado,
+          //config.cargoAprovado,
           ...(sistema.extra || [])
         ];
 
         await membro.roles.add(cargos);
-        await membro.roles.remove(config.cargoRemover);
+        //await membro.roles.remove(config.cargoRemover);
 
         // ===== REGISTRO CENTRAL =====
         const canalRegistro = interaction.guild.channels.cache.get('1554307411202805821');
