@@ -486,6 +486,7 @@ module.exports = (client) => {
       }
 
       // ========================================================
+     
       // ===== 5º PASSO: RECRUTADOR CLICA EM APROVAR TRANSFERÊNCIA =====
       // ========================================================
       if (interaction.isButton() && interaction.customId.startsWith('aprovar_transf_')) {
@@ -499,33 +500,36 @@ module.exports = (client) => {
 
         await interaction.deferUpdate();
 
+        // CORREÇÃO AQUI: split('_')[2] pega o ID do cargo corretamente após 'aprovar_transf_ID'
         const cargoEscolhido = interaction.customId.split('_')[2];
         const membro = interaction.guild.members.cache.get(interaction.channel.topic);
-        if (!membro) return;
+        if (!membro) return console.log('⚠️ Membro dono do ticket não encontrado no servidor.');
 
         const embed = interaction.message.embeds[0];
-        const getField = (n) => embed.data.fields.find(f => f.name === n)?.value || '';
+        if (!embed) return console.log('⚠️ Nenhuma embed encontrada na mensagem.');
+
+        const getField = (n) => embed.fields.find(f => f.name === n)?.value || '';
 
         const id = getField('ID');
         const nome = getField('Nome');
         const origemBatalhao = getField('🏢 Vindo de (Origem)');
 
         const sistema = config.cargosSistema[cargoEscolhido];
-        if (!sistema) return console.log('⚠️ Cargo não configurado');
+        if (!sistema) return console.log(`⚠️ Cargo ID [${cargoEscolhido}] não configurado no config.json`);
 
         // Formata o nickname
         let nickname = `[${sistema.nome}] ${nome} | ${id}`;
         if (nickname.length > 32) nickname = `[${sistema.nome}] ${nome}`.slice(0, 32);
-        await membro.setNickname(nickname).catch(() => {});
+        await membro.setNickname(nickname).catch((err) => console.error("Erro ao alterar nickname:", err.message));
 
         // Entrega os cargos definidos na configuração
         const cargos = [
           cargoEscolhido,
           ...(sistema.extra || [])
         ];
-        await membro.roles.add(cargos);
+        await membro.roles.add(cargos).catch((err) => console.error("Erro ao adicionar cargos:", err.message));
 
-                // ===== REGISTRO CENTRAL DE TRANSFERÊNCIA =====
+        // ===== REGISTRO CENTRAL DE TRANSFERÊNCIA =====
         const canalRegistro = interaction.guild.channels.cache.get('1554307411202805821');
         if (canalRegistro && typeof canalRegistro.send === 'function') {
           const linha = `| ----------------------------------------------------------------|`;
