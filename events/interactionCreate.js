@@ -946,17 +946,17 @@ if (
   // PROCURA NO CONFIG
   // ======================================================
 
-  const sistema =
+  const sistemaT =
     config.cargosTransferencia?.[
       cargoEscolhido
     ];
 
   console.log(
     'Config encontrado:',
-    sistema
+    sistemaT
   );
 
-  if (!sistema) {
+  if (!sistemaT) {
 
     console.error(
       '❌ ERRO: cargo não configurado'
