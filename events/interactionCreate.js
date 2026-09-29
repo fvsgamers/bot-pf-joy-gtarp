@@ -264,8 +264,8 @@ module.exports = (client) => {
         const sistema = config.cargosSistema[cargoEscolhido];
         if (!sistema) return console.log('⚠️ Cargo não configurado');
 
-        let nickname = `[${sistema.nome}] ${id} | ${sobrenome}`;
-        if (nickname.length > 32) nickname = `[${sistema.nome}] ${sobrenome}`.slice(0, 32);
+        let nickname = `[${sistema.nome}] ${nome} | ${id}`;
+        if (nickname.length > 32) nickname = `[${sistema.nome}] ${nome}`.slice(0, 32);
 
         await membro.setNickname(nickname).catch(() => {});
 
@@ -289,7 +289,7 @@ module.exports = (client) => {
 
           await canalRegistro.send(mensagem).catch(err => console.error("Erro ao enviar no Registro Central:", err));
         } else {
-          console.warn("⚠️ O canal '1554300382954659951' não foi encontrado no cache ou não aceita mensagens (pode ser uma categoria). Pulando para não travar a finalização.");
+          console.warn("⚠️ O canal '1554307411202805821' não foi encontrado no cache ou não aceita mensagens (pode ser uma categoria). Pulando para não travar a finalização.");
         }
 
         // ===== LOG DE APROVAÇÕES =====
