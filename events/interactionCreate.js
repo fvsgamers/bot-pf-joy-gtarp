@@ -1663,662 +1663,883 @@ module.exports = (client) => {
 
 
       // ============================================================
-      // APROVAR TRANSFERÊNCIA
-      // ============================================================
+   // ============================================================
+// APROVAR TRANSFERÊNCIA
+// ============================================================
 
-     if (
-    interaction.isButton() &&
-    interaction.customId.startsWith('aprovarTransf-')
+if (
+  interaction.isButton() &&
+  interaction.customId.startsWith('aprovarTransf-')
 ) {
 
-    await interaction.deferUpdate();
+  // ============================================================
+  // RECONHECER A INTERAÇÃO IMEDIATAMENTE
+  // ============================================================
+
+  await interaction.deferUpdate();
+
+  try {
 
     console.log('');
     console.log('==========================================');
     console.log('🔄 APROVAÇÃO DE TRANSFERÊNCIA');
     console.log('==========================================');
 
-    // ========================================================
+    // ============================================================
     // PERMISSÃO
-    // ========================================================
+    // ============================================================
 
     const temPermissao =
-        interaction.member.roles.cache.some(
-            role =>
-                (config.cargosRecrutadores || []).includes(role.id)
-        );
+      interaction.member.roles.cache.some(
+        role =>
+          (config.cargosRecrutadores || []).includes(
+            role.id
+          )
+      );
+
+    console.log(
+      '👮 Permissão:',
+      temPermissao ? 'OK' : 'NEGADA'
+    );
 
     if (!temPermissao) {
-        return interaction.followUp({
-            content:
-                '❌ Você não possui permissão para aprovar transferências.',
-            flags: 64
-        });
+
+      return interaction.followUp({
+        content:
+          '❌ Você não possui permissão para aprovar transferências.',
+        flags: 64
+      });
+
     }
 
-    // ========================================================
+    // ============================================================
     // ID DO CARGO
-    // ========================================================
-
-    const cargoEscolhido =
-        interaction.customId
-            .replace('aprovarTransf-', '')
-            .trim();
+    // ============================================================
 
     const cargoId =
-        String(cargoEscolhido).trim();
+      interaction.customId
+        .replace('aprovarTransf-', '')
+        .trim();
 
-    console.log('CustomID:', interaction.customId);
-    console.log('Cargo recebido:', cargoEscolhido);
-    console.log('Cargo normalizado:', cargoId);
+    console.log(
+      '🔘 CustomID:',
+      interaction.customId
+    );
 
-    // ========================================================
+    console.log(
+      '🎖️ Cargo recebido:',
+      cargoId
+    );
+
+    // ============================================================
     // CONFIGURAÇÃO DO CARGO
-    // ========================================================
+    // ============================================================
 
     const sistemaT =
-        config.cargosTransferencia?.[cargoId];
+      config.cargosTransferencia?.[cargoId];
 
-    console.log('Config encontrado:', sistemaT);
+    console.log(
+      '⚙️ Configuração encontrada:',
+      sistemaT
+    );
 
     if (!sistemaT) {
 
-        console.error('❌ ERRO: cargo não configurado');
-        console.error('ID recebido:', cargoId);
-        console.error(
-            'IDs existentes:',
-            Object.keys(config.cargosTransferencia || {})
-        );
+      console.error(
+        '❌ Cargo não configurado:',
+        cargoId
+      );
 
-        return interaction.followUp({
-            content:
-                `❌ **Cargo de transferência não configurado.**\n\n` +
-                `ID recebido:\n` +
-                `\`${cargoId}\``,
-            flags: 64
-        });
+      console.error(
+        'IDs disponíveis:',
+        Object.keys(
+          config.cargosTransferencia || {}
+        )
+      );
+
+      return interaction.followUp({
+        content:
+          `❌ **Cargo de transferência não configurado.**\n\n` +
+          `ID recebido:\n` +
+          `\`${cargoId}\``,
+        flags: 64
+      });
+
     }
 
-    // ========================================================
+    // ============================================================
     // ROLE DO DISCORD
-    // ========================================================
+    // ============================================================
 
     const rolePrincipal =
-        interaction.guild.roles.cache.get(cargoId);
+      interaction.guild.roles.cache.get(
+        cargoId
+      );
 
     console.log(
-        'Cargo encontrado no Discord:',
-        rolePrincipal
-            ? `${rolePrincipal.name} (${rolePrincipal.id})`
-            : 'NÃO ENCONTRADO'
+      '🎖️ Cargo encontrado no Discord:',
+      rolePrincipal
+        ? `${rolePrincipal.name} (${rolePrincipal.id})`
+        : 'NÃO ENCONTRADO'
     );
 
     if (!rolePrincipal) {
 
-        return interaction.followUp({
-            content:
-                `❌ O cargo está configurado, mas não existe no servidor.\n\n` +
-                `ID: \`${cargoId}\`\n` +
-                `Configuração: **${sistemaT.nome}**`,
-            flags: 64
-        });
+      return interaction.followUp({
+        content:
+          `❌ O cargo está configurado, mas não existe no servidor.\n\n` +
+          `ID: \`${cargoId}\`\n` +
+          `Configuração: **${sistemaT.nome}**`,
+        flags: 64
+      });
+
     }
 
-        // ========================================================
-        // MEMBRO DO TICKET
-        // ========================================================
+    // ============================================================
+    // MEMBRO DONO DO TICKET
+    // ============================================================
 
-        const membro =
-          await interaction.guild.members
-            .fetch(
-              interaction.channel.topic
-            )
-            .catch(
-              () => null
-            );
+    const memberId =
+      interaction.channel.topic?.trim();
 
+    console.log(
+      '🆔 ID encontrado no topic:',
+      memberId
+    );
 
-        if (!membro) {
+    if (!memberId) {
 
-          return interaction.reply({
+      return interaction.followUp({
+        content:
+          '❌ O ticket não possui o ID do membro no topic.',
+        flags: 64
+      });
 
-            content:
-              '❌ Membro dono do ticket não encontrado.',
+    }
 
-            flags:
-              64
-          });
-        }
+    let membro = null;
 
+    try {
 
-        // ========================================================
-        // EMBED
-        // ========================================================
-
-        const embed =
-          interaction.message.embeds[0];
-
-
-        if (!embed) {
-
-          return interaction.reply({
-
-            content:
-              '❌ Ficha de transferência não encontrada.',
-
-            flags:
-              64
-          });
-        }
-
-
-        const getField =
-          nomeCampo =>
-            embed.data?.fields?.find(
-              field =>
-                field.name ===
-                nomeCampo
-            )?.value || '';
-
-
-        const nome =
-          getField(
-            '👤 Nome'
-          );
-
-
-        const sobrenome =
-          getField(
-            '👤 Sobrenome'
-          );
-
-
-        const id =
-          getField(
-            '🆔 ID'
-          );
-
-
-        const telefone =
-          getField(
-            '📱 Telefone'
-          );
-
-
-        const origemID =
-          getField(
-            '🏢 ID Origem'
-          );
-
-
-        // ========================================================
-        // ORIGEM
-        // ========================================================
-
-        const origemConfig =
-          config.instituicoesOrigem?.[
-            origemID
-          ];
-
-
-        const origemNome =
-          typeof origemConfig === 'object'
-            ? origemConfig.nome
-            : origemConfig;
-
-
-        // ========================================================
-        // PREFIXO DA ORIGEM
-        // ========================================================
-
-        const mapaSiglas = {
-
-          '1554288806167846952':
-            'TR.PRF',
-
-          '1554288699745771701':
-            'TR.PM',
-
-          '1554288753672065084':
-            'TR.PC',
-
-          '1554288869917065236':
-            'TR.EB'
-        };
-
-
-        const sigla =
-          (
-            typeof origemConfig === 'object'
-              ? origemConfig.prefixo
-              : null
-          ) ||
-
-          mapaSiglas[
-            origemID
-          ] ||
-
-          'TR';
-
-
-        console.log(
-          '🏢 Origem:',
-          origemNome
+      membro =
+        await interaction.guild.members.fetch(
+          memberId
         );
 
-        console.log(
-          '🏷️ Prefixo:',
-          sigla
-        );
-
-
-        // ========================================================
-        // NICKNAME
-        // ========================================================
-
-        let nickname =
-          `[${sigla}] ${sobrenome} | ${id}`;
-
-
-        if (
-          nickname.length > 32
-        ) {
-
-          nickname =
-            nickname.substring(
-              0,
-              32
-            );
-        }
-
-
-        console.log(
-          '👤 Novo apelido:',
-          nickname
-        );
-
-
-        try {
-
-          await membro.setNickname(
-            nickname
-          );
-
-          console.log(
-            '✅ Apelido alterado!'
-          );
-
-        } catch (erro) {
-
-          console.error(
-            '❌ Erro ao alterar apelido:',
-            erro.message
-          );
-        }
-
-
-        // ========================================================
-        // CARGOS
-        // ========================================================
-
-        const cargosIDs = [
-
-          cargoId,
-
-          ...(Array.isArray(
-            sistemaT.extra
-          )
-            ? sistemaT.extra
-            : [])
-        ];
-
-
-        console.log(
-          '🎖️ CARGOS A ADICIONAR:',
-          cargosIDs
-        );
-
-
-        // ========================================================
-        // VALIDA CARGOS
-        // ========================================================
-
-        const cargosValidos = [];
-
-
-        for (
-          const cargoID
-          of cargosIDs
-        ) {
-
-          const cargo =
-            interaction.guild.roles.cache.get(
-              String(
-                cargoID
-              )
-            );
-
-
-          if (!cargo) {
-
-            console.error(
-              `❌ Cargo não encontrado: ${cargoID}`
-            );
-
-            continue;
-          }
-
-
-          cargosValidos.push(
-            cargo
-          );
-        }
-
-
-        if (
-          cargosValidos.length === 0
-        ) {
-
-          return interaction.reply({
-
-            content:
-              '❌ Nenhum cargo válido foi encontrado.',
-
-            flags:
-              64
-          });
-        }
-
-
-        // ========================================================
-        // HIERARQUIA DO BOT
-        // ========================================================
-
-        const botMember =
-          interaction.guild.members.me;
-
-
-        if (!botMember) {
-
-          return interaction.reply({
-
-            content:
-              '❌ Não consegui identificar o bot no servidor.',
-
-            flags:
-              64
-          });
-        }
-
-
-        const cargosBloqueados =
-          cargosValidos.filter(
-            cargo =>
-              cargo.position >=
-              botMember.roles.highest.position
-          );
-
-
-        if (
-          cargosBloqueados.length > 0
-        ) {
-
-          return interaction.reply({
-
-            content:
-
-              `❌ Não consigo adicionar os seguintes cargos porque estão acima do meu cargo:\n\n` +
-
-              cargosBloqueados
-                .map(
-                  cargo =>
-                    `• ${cargo.name}`
-                )
-                .join('\n'),
-
-            flags:
-              64
-          });
-        }
-
-
-        // ========================================================
-        // ADICIONAR CARGOS
-        // ========================================================
-
-        try {
-
-          await membro.roles.add(
-            cargosValidos
-          );
-
-
-          console.log(
-            '✅ TODOS OS CARGOS FORAM ADICIONADOS!'
-          );
-
-        } catch (erro) {
-
-          console.error(
-            '❌ ERRO AO ADICIONAR CARGOS:',
-            erro
-          );
-
-
-          return interaction.reply({
-
-            content:
-
-              '❌ O Discord recusou a adição dos cargos.\n\n' +
-
-              'Verifique se o bot possui **Gerenciar Cargos** e se os cargos estão abaixo do cargo mais alto do bot.',
-
-            flags:
-              64
-          });
-        }
-
-
-        // ========================================================
-        // REGISTRO CENTRAL
-        // ========================================================
-
-        const canalRegistro =
-          interaction.guild.channels.cache.get(
-            '1554307411202805821'
-          );
-
-
-        if (
-          canalRegistro &&
-          typeof canalRegistro.send ===
-            'function'
-        ) {
-
-          await canalRegistro.send(
-
-            `🔄 **Registro de Transferência**\n\n` +
-
-            `👤 **Nome:** ${nome} ${sobrenome}\n` +
-
-            `🆔 **ID:** ${id}\n` +
-
-            `📱 **Telefone:** ${telefone}\n` +
-
-            `🏢 **Origem:** ${origemNome || 'Desconhecida'}\n` +
-
-            `🏷️ **Cargo Concedido:** ${rolePrincipal.name}\n` +
-
-            `🏷️ **Identificação:** ${sistemaT.nome}\n` +
-
-            `🧑‍💼 **Processado por:** ${interaction.member.displayName}`
-          );
-        }
-
-
-        // ========================================================
-        // LOG DE APROVAÇÃO
-        // ========================================================
-
-        const log =
-          interaction.guild.channels.cache.get(
-            config.logAprovacoes
-          );
-
-
-        if (
-          log &&
-          typeof log.send ===
-            'function'
-        ) {
-
-          await log.send(
-
-            `🔄 **Transferência aprovada**\n\n` +
-
-            `👤 ${membro.user.tag}\n` +
-
-            `🆔 ID: ${id}\n` +
-
-            `🏢 Origem: ${origemNome || 'Desconhecida'}\n` +
-
-            `🏷️ Cargo: ${rolePrincipal.name}\n` +
-
-            `🏷️ Identificação: ${sistemaT.nome}\n` +
-
-            `👤 Apelido: ${nickname}\n` +
-
-            `🧑‍💼 Processado por: ${interaction.user.tag}`
-          );
-        }
-
-
-        // ========================================================
-        // FINALIZA
-        // ========================================================
-
-        await interaction.update({
-
-          content:
-
-            `✅ **TRANSFERÊNCIA APROVADA!**\n\n` +
-
-            `👤 **${nome} ${sobrenome}**\n` +
-
-            `🆔 **ID:** ${id}\n` +
-
-            `🏢 **Origem:** ${origemNome || 'Desconhecida'}\n` +
-
-            `🏷️ **Cargo:** ${rolePrincipal.name}\n` +
-
-            `👤 **Apelido:** ${nickname}`,
-
-          components:
-            []
-        });
-
-
-        setTimeout(
-          () =>
-            interaction.channel
-              .delete()
-              .catch(
-                () => {}
-              ),
-          5000
-        );
-
-
-        return;
-      }
-
-
-      // ============================================================
-      // REPROVAR TRANSFERÊNCIA
-      // ============================================================
-
-      if (
-        interaction.isButton() &&
-        interaction.customId ===
-          'reprovarTransf'
-      ) {
-
-        const temPermissao =
-          interaction.member.roles.cache.some(
-            role =>
-              (
-                config.cargosRecrutadores ||
-                []
-              ).includes(
-                role.id
-              )
-          );
-
-
-        if (!temPermissao) {
-
-          return interaction.reply({
-
-            content:
-              '❌ Você não possui permissão para reprovar transferências.',
-
-            flags:
-              64
-          });
-        }
-
-
-        await interaction.update({
-
-          content:
-            '❌ **TRANSFERÊNCIA REPROVADA!**',
-
-          components:
-            []
-        });
-
-
-        setTimeout(
-          () =>
-            interaction.channel
-              .delete()
-              .catch(
-                () => {}
-              ),
-          5000
-        );
-
-
-        return;
-      }
-
-    } catch (err) {
+    } catch (erro) {
 
       console.error(
-        '💥 ERRO DETALHADO:',
-        err
+        '❌ Erro ao buscar membro:',
+        erro
       );
 
+      return interaction.followUp({
+        content:
+          '❌ Membro dono do ticket não encontrado no servidor.',
+        flags: 64
+      });
 
-      if (
-        interaction &&
-        !interaction.replied &&
-        !interaction.deferred
-      ) {
-
-        await interaction.reply({
-
-          content:
-            `❌ Erro: ${err.message}`,
-
-          flags:
-            64
-        }).catch(
-          () => {}
-        );
-      }
     }
 
-  });
+    console.log(
+      '👤 Membro encontrado:',
+      membro.user.tag,
+      `(${membro.id})`
+    );
 
-};
+    // ============================================================
+    // EMBED DA TRANSFERÊNCIA
+    // ============================================================
+
+    const embed =
+      interaction.message.embeds?.[0];
+
+    if (!embed) {
+
+      return interaction.followUp({
+        content:
+          '❌ Ficha de transferência não encontrada.',
+        flags: 64
+      });
+
+    }
+
+    // ============================================================
+    // FUNÇÃO PARA PEGAR CAMPO
+    // ============================================================
+
+    const getField =
+      nomeCampo => {
+
+        const field =
+          embed.data?.fields?.find(
+            field =>
+              field.name === nomeCampo
+          );
+
+        return field?.value || '';
+
+      };
+
+    // ============================================================
+    // DADOS DA TRANSFERÊNCIA
+    // ============================================================
+
+    const nome =
+      getField('👤 Nome');
+
+    const sobrenome =
+      getField('👤 Sobrenome');
+
+    const id =
+      getField('🆔 ID');
+
+    const telefone =
+      getField('📱 Telefone');
+
+    const origemID =
+      getField('🏢 ID Origem');
+
+    console.log('');
+    console.log('========== DADOS DA TRANSFERÊNCIA ==========');
+    console.log('👤 Nome:', nome);
+    console.log('👤 Sobrenome:', sobrenome);
+    console.log('🆔 ID:', id);
+    console.log('📱 Telefone:', telefone);
+    console.log('🏢 Origem ID:', origemID);
+    console.log('============================================');
+
+    // ============================================================
+    // ORIGEM
+    // ============================================================
+
+    const origemConfig =
+      config.instituicoesOrigem?.[
+        String(origemID).trim()
+      ];
+
+    let origemNome =
+      'Desconhecida';
+
+    if (
+      typeof origemConfig === 'string'
+    ) {
+
+      origemNome =
+        origemConfig;
+
+    } else if (
+      origemConfig &&
+      typeof origemConfig === 'object'
+    ) {
+
+      origemNome =
+        origemConfig.nome ||
+        'Desconhecida';
+
+    }
+
+    // ============================================================
+    // SIGLA DA ORIGEM
+    // ============================================================
+
+    const mapaSiglas = {
+
+      '1554288806167846952':
+        'TR.PRF',
+
+      '1554288699745771701':
+        'TR.PM',
+
+      '1554288753672065084':
+        'TR.PC',
+
+      '1554288869917065236':
+        'TR.EB'
+
+    };
+
+    let sigla =
+      mapaSiglas[
+        String(origemID).trim()
+      ];
+
+    if (
+      !sigla &&
+      origemConfig &&
+      typeof origemConfig === 'object'
+    ) {
+
+      sigla =
+        origemConfig.prefixo ||
+        origemConfig.sigla;
+
+    }
+
+    if (!sigla) {
+
+      sigla =
+        'TR';
+
+    }
+
+    console.log(
+      '🏢 Origem:',
+      origemNome
+    );
+
+    console.log(
+      '🏷️ Prefixo:',
+      sigla
+    );
+
+    // ============================================================
+    // NICKNAME
+    // ============================================================
+
+    let nickname =
+      `[${sigla}] ${sobrenome} | ${id}`;
+
+    // Discord permite no máximo 32 caracteres
+    if (
+      nickname.length > 32
+    ) {
+
+      nickname =
+        nickname.substring(
+          0,
+          32
+        );
+
+    }
+
+    console.log(
+      '👤 Novo apelido:',
+      nickname
+    );
+
+    // ============================================================
+    // CARGOS
+    // ============================================================
+
+    const cargosIDs = [
+      cargoId,
+      ...(Array.isArray(sistemaT.extra)
+        ? sistemaT.extra
+        : [])
+    ];
+
+    console.log(
+      '🎖️ CARGOS A ADICIONAR:',
+      cargosIDs
+    );
+
+    // ============================================================
+    // VALIDAR CARGOS
+    // ============================================================
+
+    const cargosValidos = [];
+
+    for (
+      const cargoID of cargosIDs
+    ) {
+
+      const cargo =
+        interaction.guild.roles.cache.get(
+          String(cargoID)
+        );
+
+      if (!cargo) {
+
+        console.error(
+          `❌ Cargo não encontrado: ${cargoID}`
+        );
+
+        continue;
+
+      }
+
+      cargosValidos.push(
+        cargo
+      );
+
+    }
+
+    if (
+      cargosValidos.length === 0
+    ) {
+
+      return interaction.followUp({
+        content:
+          '❌ Nenhum cargo válido foi encontrado para esta transferência.',
+        flags: 64
+      });
+
+    }
+
+    console.log(
+      '✅ Cargos válidos:',
+      cargosValidos.map(
+        cargo =>
+          `${cargo.name} (${cargo.id})`
+      )
+    );
+
+    // ============================================================
+    // MEMBRO DO BOT
+    // ============================================================
+
+    let botMember =
+      interaction.guild.members.me;
+
+    if (!botMember) {
+
+      try {
+
+        botMember =
+          await interaction.guild.members.fetchMe();
+
+      } catch (erro) {
+
+        console.error(
+          '❌ Não foi possível obter o membro do bot:',
+          erro
+        );
+
+        return interaction.followUp({
+          content:
+            '❌ Não consegui identificar o bot no servidor.',
+          flags: 64
+        });
+
+      }
+
+    }
+
+    // ============================================================
+    // HIERARQUIA
+    // ============================================================
+
+    const cargosBloqueados =
+      cargosValidos.filter(
+        cargo =>
+          cargo.position >=
+          botMember.roles.highest.position
+      );
+
+    if (
+      cargosBloqueados.length > 0
+    ) {
+
+      console.error(
+        '❌ Cargos bloqueados pela hierarquia:',
+        cargosBloqueados.map(
+          cargo =>
+            `${cargo.name} (${cargo.id})`
+        )
+      );
+
+      return interaction.followUp({
+        content:
+
+          `❌ Não consigo adicionar os seguintes cargos porque estão acima ou no mesmo nível do meu cargo:\n\n` +
+
+          cargosBloqueados
+            .map(
+              cargo =>
+                `• ${cargo.name}`
+            )
+            .join('\n'),
+
+        flags: 64
+      });
+
+    }
+
+    // ============================================================
+    // ADICIONAR CARGOS
+    // ============================================================
+
+    try {
+
+      console.log(
+        '🔄 Adicionando cargos ao membro...'
+      );
+
+      await membro.roles.add(
+        cargosValidos,
+        'Transferência aprovada'
+      );
+
+      console.log(
+        '✅ TODOS OS CARGOS FORAM ADICIONADOS!'
+      );
+
+    } catch (erro) {
+
+      console.error(
+        '❌ ERRO AO ADICIONAR CARGOS:',
+        erro
+      );
+
+      return interaction.followUp({
+        content:
+
+          `❌ O Discord recusou a adição dos cargos.\n\n` +
+
+          `Verifique:\n` +
+          `• Permissão **Gerenciar Cargos**\n` +
+          `• Hierarquia do bot\n` +
+          `• Se os cargos estão abaixo do cargo mais alto do bot\n\n` +
+          `Erro: \`${erro.message}\``,
+
+        flags: 64
+      });
+
+    }
+
+    // ============================================================
+    // ALTERAR NICKNAME
+    // ============================================================
+
+    try {
+
+      await membro.setNickname(
+        nickname,
+        'Transferência aprovada'
+      );
+
+      console.log(
+        '✅ Apelido alterado!'
+      );
+
+    } catch (erro) {
+
+      console.error(
+        '⚠️ Erro ao alterar apelido:',
+        erro.message
+      );
+
+      // Não interrompe a transferência.
+      // Os cargos já foram aplicados.
+
+    }
+
+    // ============================================================
+    // REGISTRO CENTRAL
+    // ============================================================
+
+    const canalRegistro =
+      interaction.guild.channels.cache.get(
+        '1554307411202805821'
+      );
+
+    if (
+      canalRegistro &&
+      typeof canalRegistro.send === 'function'
+    ) {
+
+      try {
+
+        await canalRegistro.send(
+
+          `🔄 **Registro de Transferência**\n\n` +
+
+          `👤 **Nome:** ${nome} ${sobrenome}\n` +
+
+          `🆔 **ID:** ${id}\n` +
+
+          `📱 **Telefone:** ${telefone}\n` +
+
+          `🏢 **Origem:** ${origemNome}\n` +
+
+          `🏷️ **Cargo Concedido:** ${rolePrincipal.name}\n` +
+
+          `🏷️ **Identificação:** ${sistemaT.nome}\n` +
+
+          `🧑‍💼 **Processado por:** ${interaction.member.displayName}`
+
+        );
+
+        console.log(
+          '✅ Registro central enviado.'
+        );
+
+      } catch (erro) {
+
+        console.error(
+          '⚠️ Erro ao enviar registro central:',
+          erro
+        );
+
+      }
+
+    } else {
+
+      console.warn(
+        '⚠️ Canal de registro central não encontrado.'
+      );
+
+    }
+
+    // ============================================================
+    // LOG DE APROVAÇÃO
+    // ============================================================
+
+    const log =
+      config.logAprovacoes
+        ? interaction.guild.channels.cache.get(
+            config.logAprovacoes
+          )
+        : null;
+
+    if (
+      log &&
+      typeof log.send === 'function'
+    ) {
+
+      try {
+
+        await log.send(
+
+          `🔄 **Transferência aprovada**\n\n` +
+
+          `👤 ${membro.user.tag}\n` +
+
+          `🆔 ID: ${id}\n` +
+
+          `🏢 Origem: ${origemNome}\n` +
+
+          `🏷️ Cargo: ${rolePrincipal.name}\n` +
+
+          `🏷️ Identificação: ${sistemaT.nome}\n` +
+
+          `👤 Apelido: ${nickname}\n` +
+
+          `🧑‍💼 Processado por: ${interaction.user.tag}`
+
+        );
+
+        console.log(
+          '✅ Log de aprovação enviado.'
+        );
+
+      } catch (erro) {
+
+        console.error(
+          '⚠️ Erro ao enviar log:',
+          erro
+        );
+
+      }
+
+    }
+
+    // ============================================================
+    // FINALIZAR TICKET
+    // ============================================================
+
+    // ATENÇÃO:
+    // Como usamos deferUpdate() no começo,
+    // NÃO usamos interaction.update() aqui.
+    // Editamos diretamente a mensagem.
+
+    await interaction.message.edit({
+
+      content:
+
+        `✅ **TRANSFERÊNCIA APROVADA!**\n\n` +
+
+        `👤 **${nome} ${sobrenome}**\n` +
+
+        `🆔 **ID:** ${id}\n` +
+
+        `🏢 **Origem:** ${origemNome}\n` +
+
+        `🏷️ **Cargo:** ${rolePrincipal.name}\n` +
+
+        `👤 **Apelido:** ${nickname}`,
+
+      components: []
+
+    });
+
+    console.log(
+      '✅ Mensagem de aprovação atualizada.'
+    );
+
+    console.log(
+      '=========================================='
+    );
+
+    console.log(
+      '✅ TRANSFERÊNCIA CONCLUÍDA COM SUCESSO'
+    );
+
+    console.log(
+      '=========================================='
+    );
+
+    // ============================================================
+    // APAGAR TICKET
+    // ============================================================
+
+    setTimeout(
+      () => {
+
+        interaction.channel
+          .delete()
+          .catch(
+            erro =>
+              console.error(
+                '⚠️ Erro ao deletar ticket:',
+                erro
+              )
+          );
+
+      },
+      5000
+    );
+
+    return;
+
+  } catch (err) {
+
+    console.error('');
+    console.error(
+      '=========================================='
+    );
+    console.error(
+      '💥 ERRO DETALHADO NA TRANSFERÊNCIA'
+    );
+    console.error(
+      '=========================================='
+    );
+    console.error(err);
+    console.error(
+      '=========================================='
+    );
+
+    // Como o deferUpdate() já foi executado,
+    // NÃO podemos usar interaction.reply().
+    await interaction.followUp({
+      content:
+        `❌ **Erro ao processar a transferência.**\n\n` +
+        `\`${err.message || err}\``,
+      flags: 64
+    }).catch(
+      () => {}
+    );
+
+  }
+
+  return;
+}
+
+
+// ============================================================
+// REPROVAR TRANSFERÊNCIA
+// ============================================================
+
+if (
+  interaction.isButton() &&
+  interaction.customId === 'reprovarTransf'
+) {
+
+  try {
+
+    console.log('');
+    console.log(
+      '=========================================='
+    );
+    console.log(
+      '❌ REPROVAÇÃO DE TRANSFERÊNCIA'
+    );
+    console.log(
+      '=========================================='
+    );
+
+    // ============================================================
+    // PERMISSÃO
+    // ============================================================
+
+    const temPermissao =
+      interaction.member.roles.cache.some(
+        role =>
+          (config.cargosRecrutadores || [])
+            .includes(role.id)
+      );
+
+    if (!temPermissao) {
+
+      return interaction.reply({
+        content:
+          '❌ Você não possui permissão para reprovar transferências.',
+        flags: 64
+      });
+
+    }
+
+    // ============================================================
+    // ATUALIZAR MENSAGEM
+    // ============================================================
+
+    await interaction.update({
+
+      content:
+        '❌ **TRANSFERÊNCIA REPROVADA!**',
+
+      components: []
+
+    });
+
+    console.log(
+      '✅ Transferência reprovada.'
+    );
+
+    // ============================================================
+    // APAGAR TICKET
+    // ============================================================
+
+    setTimeout(
+      () => {
+
+        interaction.channel
+          .delete()
+          .catch(
+            () => {}
+          );
+
+      },
+      5000
+    );
+
+    return;
+
+  } catch (err) {
+
+    console.error(
+      '❌ Erro ao reprovar transferência:',
+      err
+    );
+
+    if (
+      !interaction.replied &&
+      !interaction.deferred
+    ) {
+
+      await interaction.reply({
+        content:
+          `❌ Erro ao reprovar transferência: ${err.message}`,
+        flags: 64
+      }).catch(
+        () => {}
+      );
+
+    }
+
+    return;
+
+  }
+
+}
