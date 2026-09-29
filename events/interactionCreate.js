@@ -190,7 +190,7 @@ module.exports = (client) => {
             name: nomeCanal,
             topic: interaction.user.id,
             type: ChannelType.GuildText,
-            parent: config.categoriaTickets,
+           // parent: config.categoriaTickets,
             permissionOverwrites: [
               { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
               { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
