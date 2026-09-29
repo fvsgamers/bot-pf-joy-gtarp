@@ -561,7 +561,7 @@ module.exports = (client) => {
         setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
       }
 
-      catch (err) {
+     } catch (err) {
       console.error('💥 ERRO DETALHADO:', err);
 
       if (interaction && !interaction.replied) {
