@@ -1666,177 +1666,103 @@ module.exports = (client) => {
       // APROVAR TRANSFERÊNCIA
       // ============================================================
 
-      if (
-        interaction.isButton() &&
-        interaction.customId.startsWith(
-          'aprovarTransf-'
-        )
-      ) {
+     if (
+    interaction.isButton() &&
+    interaction.customId.startsWith('aprovarTransf-')
+) {
 
-        console.log('');
-        console.log(
-          '=========================================='
-        );
-        console.log(
-          '🔄 APROVAÇÃO DE TRANSFERÊNCIA'
-        );
-        console.log(
-          '=========================================='
-        );
+    await interaction.deferUpdate();
 
+    console.log('');
+    console.log('==========================================');
+    console.log('🔄 APROVAÇÃO DE TRANSFERÊNCIA');
+    console.log('==========================================');
 
-        // ========================================================
-        // PERMISSÃO
-        // ========================================================
+    // ========================================================
+    // PERMISSÃO
+    // ========================================================
 
-        const temPermissao =
-          interaction.member.roles.cache.some(
+    const temPermissao =
+        interaction.member.roles.cache.some(
             role =>
-              (
-                config.cargosRecrutadores ||
-                []
-              ).includes(
-                role.id
-              )
-          );
+                (config.cargosRecrutadores || []).includes(role.id)
+        );
 
-
-        if (!temPermissao) {
-
-          return interaction.reply({
-
+    if (!temPermissao) {
+        return interaction.followUp({
             content:
-              '❌ Você não possui permissão para aprovar transferências.',
+                '❌ Você não possui permissão para aprovar transferências.',
+            flags: 64
+        });
+    }
 
-            flags:
-              64
-          });
-        }
+    // ========================================================
+    // ID DO CARGO
+    // ========================================================
 
-
-        // ========================================================
-        // ID DO CARGO
-        // ========================================================
-
-        const cargoEscolhido =
-          interaction.customId
-            .replace(
-              'aprovarTransf-',
-              ''
-            )
+    const cargoEscolhido =
+        interaction.customId
+            .replace('aprovarTransf-', '')
             .trim();
 
+    const cargoId =
+        String(cargoEscolhido).trim();
 
-        const cargoId =
-          String(
-            cargoEscolhido
-          ).trim();
+    console.log('CustomID:', interaction.customId);
+    console.log('Cargo recebido:', cargoEscolhido);
+    console.log('Cargo normalizado:', cargoId);
 
+    // ========================================================
+    // CONFIGURAÇÃO DO CARGO
+    // ========================================================
 
-        console.log(
-          'CustomID:',
-          interaction.customId
-        );
+    const sistemaT =
+        config.cargosTransferencia?.[cargoId];
 
-        console.log(
-          'Cargo recebido:',
-          cargoEscolhido
-        );
+    console.log('Config encontrado:', sistemaT);
 
-        console.log(
-          'Cargo normalizado:',
-          cargoId
-        );
+    if (!sistemaT) {
 
-
-        // ========================================================
-        // CONFIGURAÇÃO DO CARGO
-        // ========================================================
-
-        const sistemaT =
-          config.cargosTransferencia?.[
-            cargoId
-          ];
-
-
-        console.log(
-          'Config encontrado:',
-          sistemaT
-        );
-
-
-        if (!sistemaT) {
-
-          console.error(
-            '❌ ERRO: cargo não configurado'
-          );
-
-
-          console.error(
-            'ID recebido:',
-            cargoId
-          );
-
-
-          console.error(
+        console.error('❌ ERRO: cargo não configurado');
+        console.error('ID recebido:', cargoId);
+        console.error(
             'IDs existentes:',
-            Object.keys(
-              config.cargosTransferencia || {}
-            )
-          );
+            Object.keys(config.cargosTransferencia || {})
+        );
 
-
-          return interaction.reply({
-
+        return interaction.followUp({
             content:
+                `❌ **Cargo de transferência não configurado.**\n\n` +
+                `ID recebido:\n` +
+                `\`${cargoId}\``,
+            flags: 64
+        });
+    }
 
-              `❌ **Cargo de transferência não configurado.**\n\n` +
+    // ========================================================
+    // ROLE DO DISCORD
+    // ========================================================
 
-              `ID recebido:\n` +
+    const rolePrincipal =
+        interaction.guild.roles.cache.get(cargoId);
 
-              `\`${cargoId}\``,
-
-            flags:
-              64
-          });
-        }
-
-
-        // ========================================================
-        // ROLE DO DISCORD
-        // ========================================================
-
-        const rolePrincipal =
-          interaction.guild.roles.cache.get(
-            cargoId
-          );
-
-
-        console.log(
-          'Cargo encontrado no Discord:',
-          rolePrincipal
+    console.log(
+        'Cargo encontrado no Discord:',
+        rolePrincipal
             ? `${rolePrincipal.name} (${rolePrincipal.id})`
             : 'NÃO ENCONTRADO'
-        );
+    );
 
+    if (!rolePrincipal) {
 
-        if (!rolePrincipal) {
-
-          return interaction.reply({
-
+        return interaction.followUp({
             content:
-
-              `❌ O cargo está configurado, mas não existe no servidor.\n\n` +
-
-              `ID: \`${cargoId}\`\n` +
-
-              `Configuração: **${sistemaT.nome}**`,
-
-            flags:
-              64
-          });
-        }
-
+                `❌ O cargo está configurado, mas não existe no servidor.\n\n` +
+                `ID: \`${cargoId}\`\n` +
+                `Configuração: **${sistemaT.nome}**`,
+            flags: 64
+        });
+    }
 
         // ========================================================
         // MEMBRO DO TICKET
