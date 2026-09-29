@@ -424,7 +424,7 @@ module.exports = (client) => {
       }
 
       // ========================================================
-           // ========================================================
+            // ========================================================
       // ===== 4º PASSO: RECEBE O MODAL E CRIA O TICKET DE TRANSF =====
       // ========================================================
       if (interaction.isModalSubmit() && interaction.customId === 'transf_modal_dados') {
@@ -438,8 +438,9 @@ module.exports = (client) => {
         const id = interaction.fields.getTextInputValue('id');
         const telefone = interaction.fields.getTextInputValue('telefone');
 
+        // VALIDAÇÃO CORRIGIDA: Aceita apenas números puros de ponta a ponta
         if (!/^\d+\$/.test(id)) {
-          return interaction.reply({ content: '❌ ID inválido!', flags: 64 });
+          return interaction.reply({ content: '❌ ID inválido! Digite apenas números.', flags: 64 });
         }
 
         const nomeCanal = `transf-${nome.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`;
@@ -457,7 +458,7 @@ module.exports = (client) => {
         });
 
         const roleDesejada = interaction.guild.roles.cache.get(dados.cargoDesejado);
-        const cargoOrigemMencao = dados.origemBatalhaoID ? `<@&${dados.origemBatalhaoID[0]}>` : 'Não informado';
+        const cargoOrigemMencao = dados.origemBatalhaoID ? `<@&${dados.origemBatalhaoID}>` : 'Não informado';
 
         const embed = new EmbedBuilder()
           .setTitle('🔄 Nova Transferência Externa')
@@ -471,7 +472,6 @@ module.exports = (client) => {
             { name: '🏷️ Cargo Desejado', value: roleDesejada ? roleDesejada.name : dados.cargoDesejado }
           );
 
-        // GARANTIA: Construímos o CustomId separando com o caractere especial hífen '-' para não colidir com splits de underline
         const botoes = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
             .setCustomId(`aprovarTransf-${dados.cargoDesejado}`)
@@ -490,9 +490,6 @@ module.exports = (client) => {
         return interaction.reply({ content: '✅ Canal de transferência criado!', flags: 64 });
       }
 
-
-      // ========================================================
-     
            // ========================================================
       // ===== 5º PASSO: RECRUTADOR CLICA EM APROVAR TRANSFERÊNCIA =====
       // ========================================================
