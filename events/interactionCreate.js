@@ -389,15 +389,18 @@ module.exports = (client) => {
 
 
       // ========================================================
+            // ========================================================
       // ===== 3º PASSO: APÓS ESCOLHER O CARGO, ABRE O MODAL DADOS =====
       // ========================================================
-            if (interaction.isStringSelectMenu() && interaction.customId === 'transf_select_cargo') {
+      if (interaction.isStringSelectMenu() && interaction.customId === 'transf_select_cargo') {
+        const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+
         const dados = dadosTemp[interaction.user.id];
         if (!dados) return interaction.reply({ content: '❌ Sessão expirada. Inicie novamente.', flags: 64 });
 
-        // CORREÇÃO AQUI: Salva a string pura do ID do cargo usando [0] em vez de salvar o array completo
-        dados.cargoDesejado = interaction.values[0]; 
-        
+        // GARANTIA: Extrai a string pura tirando-a de dentro do Array retornado pelo select menu
+        dados.cargoDesejado = String(interaction.values[0]).trim(); 
+
         const modal = new ModalBuilder()
           .setCustomId('transf_modal_dados')
           .setTitle('📝 Dados do Transferido');
@@ -417,12 +420,11 @@ module.exports = (client) => {
           )
         );
 
-        // O showModal precisa responder à interação atual. 
-        // Como o update anterior já foi feito, usamos o interaction normal.
         return interaction.showModal(modal);
       }
 
       // ========================================================
+           // ========================================================
       // ===== 4º PASSO: RECEBE O MODAL E CRIA O TICKET DE TRANSF =====
       // ========================================================
       if (interaction.isModalSubmit() && interaction.customId === 'transf_modal_dados') {
@@ -436,11 +438,10 @@ module.exports = (client) => {
         const id = interaction.fields.getTextInputValue('id');
         const telefone = interaction.fields.getTextInputValue('telefone');
 
-        if (!/^\d+$/.test(id)) {
+        if (!/^\d+\$/.test(id)) {
           return interaction.reply({ content: '❌ ID inválido!', flags: 64 });
         }
 
-        // Cria o canal temporário com o prefixo transf-
         const nomeCanal = `transf-${nome.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`;
         const canal = await interaction.guild.channels.create({
           name: nomeCanal,
@@ -456,28 +457,28 @@ module.exports = (client) => {
         });
 
         const roleDesejada = interaction.guild.roles.cache.get(dados.cargoDesejado);
+        const cargoOrigemMencao = dados.origemBatalhaoID ? `<@&${dados.origemBatalhaoID[0]}>` : 'Não informado';
 
-        // Monta a Embed com as duas novas informações em destaque (Origem e Cargo Desejado)
         const embed = new EmbedBuilder()
           .setTitle('🔄 Nova Transferência Externa')
-          .setColor(0x3498db) // Azul
+          .setColor(0x3498db)
           .addFields(
             { name: 'Nome', value: nome },
             { name: 'Sobrenome', value: sobrenome },
             { name: 'ID', value: id },
             { name: 'Telefone', value: telefone },
-            { name: '🏢 Vindo de (Origem)', value: `<@&${dados.origemBatalhaoID}>` },
+            { name: '🏢 Vindo de (Origem)', value: cargoOrigemMencao },
             { name: '🏷️ Cargo Desejado', value: roleDesejada ? roleDesejada.name : dados.cargoDesejado }
           );
 
-        // Botão modificado apontando para a finalização exclusiva de transferência
+        // GARANTIA: Construímos o CustomId separando com o caractere especial hífen '-' para não colidir com splits de underline
         const botoes = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
-            .setCustomId(`aprovar_transf_${dados.cargoDesejado}`)
+            .setCustomId(`aprovarTransf-${dados.cargoDesejado}`)
             .setLabel('Aprovar Transferência')
             .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
-            .setCustomId('reprovar') // Reaproveita o seu reprovar padrão que já deleta o canal
+            .setCustomId('reprovar')
             .setLabel('Reprovar')
             .setStyle(ButtonStyle.Danger)
         );
@@ -489,9 +490,10 @@ module.exports = (client) => {
         return interaction.reply({ content: '✅ Canal de transferência criado!', flags: 64 });
       }
 
+
       // ========================================================
      
-            // ========================================================
+           // ========================================================
       // ===== 5º PASSO: RECRUTADOR CLICA EM APROVAR TRANSFERÊNCIA =====
       // ========================================================
       if (interaction.isButton() && interaction.customId.startsWith('aprovarTransf-')) {
@@ -505,32 +507,28 @@ module.exports = (client) => {
 
         await interaction.deferUpdate();
 
-        // Limpa o ID do cargo vindo do botão
-        const cargoEscolhido = interaction.customId.replace('aprovarTransf-', '').trim();
-        
-        // LOG DE DEBBUG (Vai mostrar no terminal exatamente qual ID o bot está lendo):
-        console.log(`[DEBUG TRANSFERÊNCIA] ID lido do botão: "${cargoEscolhido}"`);
+        // BLINDAGEM 1: Extrai de forma isolada apenas os numerais do ID do cargo contidos no customId
+        const idLimpoMatch = interaction.customId.match(/\d+/);
+        if (!idLimpoMatch) return console.log('⚠️ Nenhum ID de cargo numérico foi encontrado no customId.');
+        const cargoEscolhido = String(idLimpoMatch[0]);
 
         const membro = interaction.guild.members.cache.get(interaction.channel.topic);
         if (!membro) return console.log('⚠️ Membro dono do ticket não encontrado no servidor.');
 
-        // CORREÇÃO DE LEITURA DA EMBED
         const embedOriginal = interaction.message.embeds[0];
         if (!embedOriginal) return console.log('⚠️ Nenhuma embed encontrada na mensagem.');
 
-        // Mudado de embed.data.fields para embedOriginal.fields para garantir compatibilidade
         const getField = (n) => embedOriginal.fields.find(f => f.name === n)?.value || '';
 
         const id = getField('ID');
         const nome = getField('Nome');
         const origemBatalhao = getField('🏢 Vindo de (Origem)');
 
-        // Log auxiliar para o config.json
-        console.log(`[DEBUG TRANSFERÊNCIA] Tentando buscar no config.json a chave: "${cargoEscolhido}"`);
-
+        // BLINDAGEM 2: Agora que a string está tratada, fazemos a busca exata
         const sistema = config.cargosSistema[cargoEscolhido];
         if (!sistema) {
-          console.log(`⚠️ Erro: O ID "${cargoEscolhido}" não existe dentro do seu config.cargosSistema.`);
+          console.log(`❌ ERRO CRÍTICO: O ID numérico puro extraído foi: "${cargoEscolhido}"`);
+          console.log(`⚠️ Esse ID não corresponde a nenhuma chave configurada em config.cargosSistema.`);
           return;
         }
 
@@ -563,7 +561,7 @@ module.exports = (client) => {
         setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
       }
 
-    } catch (err) {
+      catch (err) {
       console.error('💥 ERRO DETALHADO:', err);
 
       if (interaction && !interaction.replied) {
