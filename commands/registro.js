@@ -34,23 +34,22 @@ module.exports = {
       });
     }
 
-    const button = new ActionRowBuilder().addComponents(
+    const botoesInicio = new ActionRowBuilder().addComponents(
+      
       new ButtonBuilder()
         .setCustomId('abrir_formulario')
         .setLabel('📋 Iniciar Registro')
         .setStyle(ButtonStyle.Primary)
-    );
 
-     const button = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId('abrir_transferencia')
-        .setLabel('📋 Fazer Transferência')
-        .setStyle(ButtonStyle.Secondary)
+        .setLabel('📋 Iniciar Transferência')
+        .setStyle(ButtonStyle.Primary)
     );
 
     await interaction.reply({
       content: 'Escolha uma opção abaixo:',
-      components: [button]
+      components: [botoesInicio]
     });
   }
 };
