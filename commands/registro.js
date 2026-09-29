@@ -45,7 +45,7 @@ module.exports = {
       new ButtonBuilder()
         .setCustomId('abrir_transferencia')
         .setLabel('📋 Fazer Transferência')
-        .setStyle(ButtonStyle.Primary)
+        .setStyle(ButtonStyle.Secondary)
     );
 
     await interaction.reply({
