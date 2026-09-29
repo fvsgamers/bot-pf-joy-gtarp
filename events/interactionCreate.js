@@ -279,48 +279,23 @@ module.exports = (client) => {
         //await membro.roles.remove(config.cargoRemover);
 
         // ===== REGISTRO CENTRAL =====
-        const canalRegistro = interaction.guild.channels.cache.get('1554300382954659951');
+        // Mudamos de .cache.get para .fetch para garantir que o bot encontre o canal
+        let canalRegistro;
+        try {
+          canalRegistro = await interaction.guild.channels.fetch('1554300382954659951');
+        } catch (e) {
+          console.error("❌ Não foi possível encontrar o canal de registro na API:", e.message);
+        }
 
-        if (canalRegistro) {
+        // Verificamos se o canal foi encontrado E se ele aceita o método .send
+        if (canalRegistro && typeof canalRegistro.send === 'function') {
           const linha = `| ----------------------------------------------------------------|`;
 
           const mensagem = `\n📜 **Registro**\n\n👤 **Nome:** ${nome}\n🆔 **Sobrenome:** ${sobrenome}\n🆔 **ID:** ${id}\n📞 **Telefone:** ${telefone}\n🏷️ **Cargo:** ${sistema.nome}\n🧑‍💼 **Aprovado por:** ${interaction.member.displayName}\n\n${linha}\n`;
 
-          canalRegistro.send(mensagem);
+          // Usamos await para garantir o envio correto
+          await canalRegistro.send(mensagem);
+        } else {
+          console.error("❌ O canal existe, mas não é um canal de texto válido ou o bot não tem permissão de enviar mensagem nele.");
         }
 
-        //const log = interaction.guild.channels.cache.get(config.logAprovacoes);
-        //if (log) {
-        //  log.send(`✅ ${membro.user.tag} aprovado por ${interaction.user.tag}\nCargo: ${sistema.nome}\nApelido: ${nickname}`);
-        //}
-
-        await interaction.message.edit({ content: '✅ Aprovado!', components: [] });
-
-        setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
-      }
-
-      // ===== REPROVAR =====
-      if (interaction.isButton() && interaction.customId === 'reprovar') {
-
-        const temPermissao = interaction.member.roles.cache.some(role =>
-          config.cargosRecrutadores.includes(role.id)
-        );
-
-        if (!temPermissao) {
-          return interaction.reply({ content: '❌ Sem permissão.', flags: 64 });
-        }
-
-        await interaction.update({ content: '❌ Reprovado!', components: [] });
-
-        setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
-      }
-
-    } catch (err) {
-      console.error('💥 ERRO DETALHADO:', err);
-
-      if (interaction && !interaction.replied) {
-        interaction.reply({ content: `❌ Erro: ${err.message}`, flags: 64 }).catch(() => {});
-      }
-    }
-  });
-};
