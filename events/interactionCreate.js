@@ -491,6 +491,7 @@ module.exports = (client) => {
       }
 
            // ========================================================
+            // ========================================================
       // ===== 5º PASSO: RECRUTADOR CLICA EM APROVAR TRANSFERÊNCIA =====
       // ========================================================
       if (interaction.isButton() && interaction.customId.startsWith('aprovarTransf-')) {
@@ -504,10 +505,8 @@ module.exports = (client) => {
 
         await interaction.deferUpdate();
 
-        // BLINDAGEM 1: Extrai de forma isolada apenas os numerais do ID do cargo contidos no customId
-        const idLimpoMatch = interaction.customId.match(/\d+/);
-        if (!idLimpoMatch) return console.log('⚠️ Nenhum ID de cargo numérico foi encontrado no customId.');
-        const cargoEscolhido = String(idLimpoMatch[0]);
+        // CORREÇÃO DEFINITIVA: Remove o prefixo e força o ID a virar uma STRING de texto limpa e sem espaços
+        const cargoEscolhido = String(interaction.customId.split('-')[1]).trim();
 
         const membro = interaction.guild.members.cache.get(interaction.channel.topic);
         if (!membro) return console.log('⚠️ Membro dono do ticket não encontrado no servidor.');
@@ -515,17 +514,17 @@ module.exports = (client) => {
         const embedOriginal = interaction.message.embeds[0];
         if (!embedOriginal) return console.log('⚠️ Nenhuma embed encontrada na mensagem.');
 
+        // Garante compatibilidade na leitura dos campos da Embed
         const getField = (n) => embedOriginal.fields.find(f => f.name === n)?.value || '';
 
         const id = getField('ID');
         const nome = getField('Nome');
         const origemBatalhao = getField('🏢 Vindo de (Origem)');
 
-        // BLINDAGEM 2: Agora que a string está tratada, fazemos a busca exata
+        // Faz a busca exata usando a string purificada
         const sistema = config.cargosSistema[cargoEscolhido];
         if (!sistema) {
-          console.log(`❌ ERRO CRÍTICO: O ID numérico puro extraído foi: "${cargoEscolhido}"`);
-          console.log(`⚠️ Esse ID não corresponde a nenhuma chave configurada em config.cargosSistema.`);
+          console.log(`❌ ERRO DE CONFIGURAÇÃO: O bot extraiu o ID "${cargoEscolhido}", mas ele não existe dentro do config.json`);
           return;
         }
 
@@ -557,6 +556,7 @@ module.exports = (client) => {
         await interaction.message.edit({ content: '✅ Transferência Finalizada!', components: [] });
         setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
       }
+
 
      } catch (err) {
       console.error('💥 ERRO DETALHADO:', err);
