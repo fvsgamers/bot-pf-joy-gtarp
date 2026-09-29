@@ -447,12 +447,12 @@ module.exports = (client) => {
         // 1. MAPEAMENTO DE SIGLAS: Identifica a sigla correta baseada no ID da instituição escolhida no Passo 1
         // SUBSTITUA OS NÚMEROS ABAIXO PELOS IDS REAIS DOS SEUS CARGOS DE INSTITUIÇÃO
         const mapaSiglas = {
-          "155440000000000001": "TR.PRF", // ID do cargo da PRF
-          "155440000000000002": "TR.PM",  // ID do cargo da Militar
-          "155440000000000003": "TR.PC",  // ID do cargo da Polícia Civil
-          "155440000000000004": "TR.EB"   // ID do cargo do Exército
+          "1554288806167846952": "TR.PRF", // ID do cargo da PRF
+          "1554288699745771701": "TR.PM",  // ID do cargo da Militar
+          "1554288753672065084": "TR.PC",  // ID do cargo da Polícia Civil
+          "1554288869917065236": "TR.EB"   // ID do cargo do Exército
         };
-
+         
         // Pega a sigla correta. Se o ID não bater, ele usa "TR" como padrão de segurança.
         const siglaOrigem = mapaSiglas[dados.origemBatalhaoID] || "TR";
 
