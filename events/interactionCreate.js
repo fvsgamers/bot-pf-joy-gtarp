@@ -387,9 +387,6 @@ module.exports = (client) => {
         });
       }
 
-
-      // ========================================================
-            // ========================================================
       // ===== 3º PASSO: APÓS ESCOLHER O CARGO, ABRE O MODAL DADOS =====
       // ========================================================
       if (interaction.isStringSelectMenu() && interaction.customId === 'transf_select_cargo') {
@@ -423,12 +420,10 @@ module.exports = (client) => {
         return interaction.showModal(modal);
       }
 
-      // ========================================================
-            // ========================================================
-      // ===== 4º PASSO: RECEBE O MODAL, SETA CARGOS E FINALIZA =====
+      // ===== 4º PASSO: RECEBE O MODAL E CRIA O TICKET DE TRANSF =====
       // ========================================================
       if (interaction.isModalSubmit() && interaction.customId === 'transf_modal_dados') {
-        const { EmbedBuilder } = require('discord.js');
+        const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
 
         const dados = dadosTemp[interaction.user.id];
         if (!dados) return interaction.reply({ content: '❌ Dados expirados.', flags: 64 });
@@ -442,83 +437,55 @@ module.exports = (client) => {
           return interaction.reply({ content: '❌ ID inválido! Digite apenas números.', flags: 64 });
         }
 
-        await interaction.deferReply({ flags: 64 });
-
-        // 1. MAPEAMENTO DE SIGLAS: Identifica a sigla correta baseada no ID da instituição escolhida no Passo 1
-        // SUBSTITUA OS NÚMEROS ABAIXO PELOS IDS REAIS DOS SEUS CARGOS DE INSTITUIÇÃO
-        const mapaSiglas = {
-          "1554288806167846952": "TR.PRF", // ID do cargo da PRF
-          "1554288699745771701": "TR.PM",  // ID do cargo da Militar
-          "1554288753672065084": "TR.PC",  // ID do cargo da Polícia Civil
-          "1554288869917065236": "TR.EB"   // ID do cargo do Exército
-        };
-         
-        // Pega a sigla correta. Se o ID não bater, ele usa "TR" como padrão de segurança.
-        const siglaOrigem = mapaSiglas[dados.origemBatalhaoID] || "TR";
-
-        // 2. BUSCA O CARGO DO SISTEMA CONFIGURADO
-        const sistema = config.cargosSistema[dados.cargoDesejado];
-        if (!sistema) {
-          return interaction.editReply({ content: '❌ Erro interno: O cargo selecionado não está configurado no config.json.' });
-        }
-
-        // 3. BUSCA O MEMBRO NO SERVIDOR
-        const membro = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
-        if (!membro) return interaction.editReply({ content: '❌ Não consegui encontrar você no servidor.' });
-
-        // 4. FORMATA E ALTERA O APELIDO COM A NOVA REGRA (Ex: [TR.PRF] Nome | ID)
-        let nickname = `[${siglaOrigem}] ${nome} | ${id}`;
-        if (nickname.length > 32) nickname = `[${siglaOrigem}] ${nome}`.slice(0, 32);
-        await membro.setNickname(nickname).catch((err) => console.error("Erro ao alterar nickname:", err.message));
-
-        // 5. ENTREGA TODOS OS CARGOS AUTOMATICAMENTE
-        const cargosParaAdicionar = [
-          dados.cargoDesejado,
-          ...(sistema.extra || [])
-        ];
-        await membro.roles.add(cargosParaAdicionar).catch((err) => console.error("Erro ao adicionar cargos:", err.message));
-
-        // 6. CRIA O CANAL TEMPORÁRIO APENAS PARA EXIBIR O SUCESSO E DELETAR
         const nomeCanal = `transf-${nome.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`;
         const canal = await interaction.guild.channels.create({
           name: nomeCanal,
-          topic: interaction.user.id,
+          topic: interaction.user.id, // ID do jogador fica salvo aqui no tópico
           type: ChannelType.GuildText,
           parent: config.categoriaTickets,
           permissionOverwrites: [
             { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-            { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel] },
-            { id: interaction.client.user.id, allow: [PermissionsBitField.Flags.ViewChannel] }
+            { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
+            { id: interaction.client.user.id, allow: [PermissionsBitField.Flags.ViewChannel] },
+            ...config.cargosRecrutadores.map(c => ({ id: c, allow: [PermissionsBitField.Flags.ViewChannel] }))
           ]
         });
 
-        const roleOrigemMencao = dados.origemBatalhaoID ? `<@&${dados.origemBatalhaoID}>` : 'Não informado';
-        const roleDesejadaMencao = dados.cargoDesejado ? `<@&${dados.cargoDesejado}>` : 'Não informado';
+        const roleDesejada = interaction.guild.roles.cache.get(dados.cargoDesejado);
+        const cargoOrigemMencao = dados.origemBatalhaoID ? `<@&${dados.origemBatalhaoID}>` : 'Não informado';
 
-        // 7. ENVIA O RELATÓRIO NO REGISTRO CENTRAL
-        const canalRegistro = interaction.guild.channels.cache.get('1554307411202805821');
-        if (canalRegistro && typeof canalRegistro.send === 'function') {
-          const linha = `| ----------------------------------------------------------------|`;
-          const mensagem = `\n🔄 **Registro de Transferência Direta**\n\n👤 **Nome:** ${nome} ${sobrenome}\n🆔 **ID:** ${id}\n📞 **Telefone:** ${telefone}\n🏢 **Origem:** ${roleOrigemMencao}\n🏷️ **Cargo Concedido:** ${sistema.nome}\n🪪 **Apelido Setado:** ${nickname}\n\n${linha}\n`;
-          await canalRegistro.send(mensagem).catch(err => console.error("Erro no Registro Central:", err));
-        }
+        const embed = new EmbedBuilder()
+          .setTitle('🔄 Nova Solicitação de Transferência')
+          .setColor(0x3498db)
+          .addFields(
+            { name: 'Nome', value: nome },
+            { name: 'Sobrenome', value: sobrenome },
+            { name: 'ID', value: id },
+            { name: 'Telefone', value: telefone },
+            { name: '🏢 Vindo de (Origem ID)', value: String(dados.origemBatalhaoID) }, // ID salvo em texto puro para o bot ler depois
+            { name: '🏢 Instituição de Origem', value: cargoOrigemMencao },
+            { name: '🏷️ Cargo Desejado', value: roleDesejada ? roleDesejada.name : dados.cargoDesejado }
+          );
 
-        // 8. ENVIA NO LOG GERAL DE APROVAÇÕES
-        const log = interaction.guild.channels.cache.get(config.logAprovacoes);
-        if (log && typeof log.send === 'function') {
-          await log.send(`🔄 **Transferência Concluída:** ${membro.user.tag}\nOrigem: ${roleOrigemMencao}\nCargo Recebido: ${sistema.nome}\nNovo Apelido: ${nickname}`).catch(err => console.error(err));
-        }
+        // Criamos o customId usando o traço para isolar o ID do cargo desejado
+        const botoes = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId(`aprovarTransf-${dados.cargoDesejado}`)
+            .setLabel('Aprovar Transferência')
+            .setStyle(ButtonStyle.Primary),
+          new ButtonBuilder()
+            .setCustomId('reprovar') // Reaproveita o botão de reprovar padrão do seu script
+            .setLabel('Reprovar')
+            .setStyle(ButtonStyle.Danger)
+        );
 
-        // 9. FINALIZAÇÃO AUTOMÁTICA
-        await canal.send({ content: `✅ **Transferência concluída com sucesso, <@${interaction.user.id}>!**\nSeus cargos foram entregues e seu apelido foi alterado para \`\${nickname}\`.\n*Este canal será deletado em 10 segundos.*` });
+        await canal.send({ embeds: [embed], components: [botoes] });
         
         delete dadosTemp[interaction.user.id];
-        await interaction.editReply({ content: '✅ Sua transferência foi processada com sucesso!' });
 
-        setTimeout(() => canal.delete().catch(() => {}), 10000);
+        return interaction.reply({ content: '✅ Canal de transferência criado para avaliação!', flags: 64 });
       }
-
-      // ========================================================
+            // ========================================================
       // ===== 5º PASSO: RECRUTADOR CLICA EM APROVAR TRANSFERÊNCIA =====
       // ========================================================
       if (interaction.isButton() && interaction.customId.startsWith('aprovarTransf-')) {
@@ -532,34 +499,47 @@ module.exports = (client) => {
 
         await interaction.deferUpdate();
 
-        // CORREÇÃO DEFINITIVA: Remove o prefixo e força o ID a virar uma STRING de texto limpa e sem espaços
-        const cargoEscolhido = String(interaction.customId.split('-')[1]).trim();
+        // Extrai o ID do cargo com precisão cortando o prefixo do botão
+        const cargoEscolhido = interaction.customId.replace('aprovarTransf-', '').trim();
 
+        // Busca o membro (o dono do ticket) usando o ID salvo no tópico do canal
         const membro = interaction.guild.members.cache.get(interaction.channel.topic);
         if (!membro) return console.log('⚠️ Membro dono do ticket não encontrado no servidor.');
 
         const embedOriginal = interaction.message.embeds[0];
         if (!embedOriginal) return console.log('⚠️ Nenhuma embed encontrada na mensagem.');
 
-        // Garante compatibilidade na leitura dos campos da Embed
         const getField = (n) => embedOriginal.fields.find(f => f.name === n)?.value || '';
 
         const id = getField('ID');
         const nome = getField('Nome');
-        const origemBatalhao = getField('🏢 Vindo de (Origem)');
+        const cargoOrigemMencao = getField('🏢 Instituição de Origem');
+        const origemID = getField('🏢 Vindo de (Origem ID)').trim(); // Coleta o ID da instituição direto da Embed
 
-        // Faz a busca exata usando a string purificada
+        // MAPEAMENTO DE SIGLAS: Vincula o ID do cargo selecionado à sigla do apelido
+        // SUBSTITUA OS NÚMEROS ABAIXO PELOS IDS REAIS DOS SEUS CARGOS DE INSTITUIÇÃO
+        const mapaSiglas = {
+          "1554288806167846952": "TR.PRF",
+          "1554288699745771701": "TR.PM", 
+          "1554288753672065084": "TR.PC", 
+          "1554288869917065236": "TR.EB" 
+        };
+
+        const siglaOrigem = mapaSiglas[origemID] || "TR";
+
+        // Valida se o cargo desejado existe nas configurações do seu sistema
         const sistema = config.cargosSistema[cargoEscolhido];
         if (!sistema) {
-          console.log(`❌ ERRO DE CONFIGURAÇÃO: O bot extraiu o ID "${cargoEscolhido}", mas ele não existe dentro do config.json`);
+          console.log(`❌ ERRO: O ID "${cargoEscolhido}" lido do botão não está em config.cargosSistema.`);
           return;
         }
 
-        // Formata o nickname
-        let nickname = `[${sistema.nome}] ${nome} | ${id}`;
-        if (nickname.length > 32) nickname = `[${sistema.nome}] ${nome}`.slice(0, 32);
+        // Formata e altera o apelido com base na sigla correta
+        let nickname = `[${siglaOrigem}] ${nome} | ${id}`;
+        if (nickname.length > 32) nickname = `[${siglaOrigem}] ${nome}`.slice(0, 32);
         await membro.setNickname(nickname).catch((err) => console.error("Erro ao alterar nickname:", err.message));
 
+        // Adiciona os cargos e as tags adicionais
         const cargos = [
           cargoEscolhido,
           ...(sistema.extra || [])
@@ -570,22 +550,20 @@ module.exports = (client) => {
         const canalRegistro = interaction.guild.channels.cache.get('1554307411202805821');
         if (canalRegistro && typeof canalRegistro.send === 'function') {
           const linha = `| ----------------------------------------------------------------|`;
-          const mensagem = `\n🔄 **Registro de Transferência**\n\n👤 **Nome:** ${nome}\n🆔 **ID:** ${id}\n🏢 **Origem:** ${origemBatalhao}\n🏷️ **Cargo Concedido:** ${sistema.nome}\n🧑‍💼 **Processado por:** ${interaction.member.displayName}\n\n${linha}\n`;
+          const mensagem = `\n🔄 **Registro de Transferência**\n\n👤 **Nome:** ${nome}\n🆔 **ID:** ${id}\n🏢 **Origem:** ${cargoOrigemMencao}\n🏷️ **Cargo Concedido:** ${sistema.nome}\n🧑‍💼 **Processado por:** ${interaction.member.displayName}\n\n${linha}\n`;
           await canalRegistro.send(mensagem).catch(err => console.error("Erro no Registro Central:", err));
         }
 
         // ===== LOG DE APROVAÇÕES =====
         const log = interaction.guild.channels.cache.get(config.logAprovacoes);
         if (log && typeof log.send === 'function') {
-          await log.send(`🔄 ${membro.user.tag} transferido da **${origemBatalhao}** por ${interaction.user.tag}\nCargo: ${sistema.nome}`).catch(err => console.error(err));
+          await log.send(`🔄 ${membro.user.tag} transferido da instituição **${cargoOrigemMencao}** por ${interaction.user.tag}\nCargo: ${sistema.nome}`).catch(err => console.error(err));
         }
 
         await interaction.message.edit({ content: '✅ Transferência Finalizada!', components: [] });
         setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
       }
-
-
-     } catch (err) {
+    } catch (err) {
       console.error('💥 ERRO DETALHADO:', err);
 
       if (interaction && !interaction.replied) {
