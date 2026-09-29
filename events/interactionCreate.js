@@ -466,7 +466,7 @@ module.exports = (client) => {
             { name: 'Sobrenome', value: sobrenome },
             { name: 'ID', value: id },
             { name: 'Telefone', value: telefone },
-            { name: '🏢 Vindo de (Origem)', value: dados.origemBatalhao },
+            { name: '🏢 Vindo de (Origem)', value: `<@&${dados.origemBatalhaoID}>` },
             { name: '🏷️ Cargo Desejado', value: roleDesejada ? roleDesejada.name : dados.cargoDesejado }
           );
 
