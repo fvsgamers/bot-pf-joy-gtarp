@@ -320,6 +320,229 @@ module.exports = (client) => {
         setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
       }
 
+      // ====================== Lógica da Transferência ========================== //
+
+      // ===== 1º PASSO: CLIQUE NO BOTÃO INICIAR TRANSFERÊNCIA =====
+      // ========================================================
+      if (interaction.isButton() && interaction.customId === 'abrir_transferencia') {
+        const { StringSelectMenuBuilder, ActionRowBuilder } = require('discord.js');
+
+        // Cria a lista com os 3 batalhões fixos de origem
+        const selectOrigem = new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId('transf_select_origem')
+            .setPlaceholder('Selecione sua instituição de origem')
+            .addOptions([
+              { label: 'Polícia Rodoviária Federal (PRF)', value: 'Polícia Rodoviária Federal' },
+              { label: 'Polícia Civil', value: 'Polícia Civil' },
+              { label: 'Exército Brasileiro', value: 'Exército Brasileiro' }
+            ])
+        );
+
+        // Cria a estrutura temporária se não existir
+        dadosTemp[interaction.user.id] = { tipoFlow: 'transferencia' };
+
+        return interaction.reply({
+          content: '🏢 Para iniciar sua transferência, selecione sua instituição de origem:',
+          components: [selectOrigem],
+          flags: 64
+        });
+      }
+
+      // ========================================================
+      // ===== 2º PASSO: APÓS SELECIONAR A ORIGEM, ESCOLHE O CARGO =====
+      // ========================================================
+      if (interaction.isStringSelectMenu() && interaction.customId === 'transf_select_origem') {
+        const { StringSelectMenuBuilder, ActionRowBuilder } = require('discord.js');
+        
+        const dados = dadosTemp[interaction.user.id];
+        if (!dados) return interaction.reply({ content: '❌ Sessão expirada. Inicie novamente.', flags: 64 });
+
+        dados.origemBatalhao = interaction.values[0]; // Salva PRF, Polícia Civil ou Exército
+
+        // Puxa exatamente a mesma lista de cargos que você já tem no config.json
+        const cargosOptions = Object.entries(config.cargosSistema)
+          .map(([id, data]) => {
+            const role = interaction.guild.roles.cache.get(id);
+            return {
+              label: role ? role.name : data.nome,
+              value: id
+            };
+          });
+
+        const selectCargo = new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId('transf_select_cargo')
+            .setPlaceholder('Selecione o cargo desejado')
+            .addOptions(cargosOptions)
+        );
+
+        return interaction.update({
+          content: `🏢 Origem selecionada: **${dados.origemBatalhao}**\n Now, selecione o **Cargo Desejado**:`,
+          components: [selectCargo]
+        });
+      }
+
+      // ========================================================
+      // ===== 3º PASSO: APÓS ESCOLHER O CARGO, ABRE O MODAL DADOS =====
+      // ========================================================
+      if (interaction.isStringSelectMenu() && interaction.customId === 'transf_select_cargo') {
+        const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+
+        const dados = dadosTemp[interaction.user.id];
+        if (!dados) return interaction.reply({ content: '❌ Sessão expirada. Inicie novamente.', flags: 64 });
+
+        dados.cargoDesejado = interaction.values[0]; // Salva o ID do cargo escolhido
+
+        const modal = new ModalBuilder()
+          .setCustomId('transf_modal_dados')
+          .setTitle('📝 Dados do Transferido');
+
+        modal.addComponents(
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder().setCustomId('nome').setLabel('Nome').setStyle(TextInputStyle.Short).setRequired(true)
+          ),
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder().setCustomId('sobrenome').setLabel('Sobrenome').setStyle(TextInputStyle.Short).setRequired(true)
+          ),
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder().setCustomId('id').setLabel('ID (somente números)').setStyle(TextInputStyle.Short).setRequired(true)
+          ),
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder().setCustomId('telefone').setLabel('Telefone (in-game)').setStyle(TextInputStyle.Short).setRequired(true)
+          )
+        );
+
+        // O showModal precisa responder à interação atual. 
+        // Como o update anterior já foi feito, usamos o interaction normal.
+        return interaction.showModal(modal);
+      }
+
+      // ========================================================
+      // ===== 4º PASSO: RECEBE O MODAL E CRIA O TICKET DE TRANSF =====
+      // ========================================================
+      if (interaction.isModalSubmit() && interaction.customId === 'transf_modal_dados') {
+        const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
+
+        const dados = dadosTemp[interaction.user.id];
+        if (!dados) return interaction.reply({ content: '❌ Dados expirados.', flags: 64 });
+
+        const nome = interaction.fields.getTextInputValue('nome');
+        const sobrenome = interaction.fields.getTextInputValue('sobrenome');
+        const id = interaction.fields.getTextInputValue('id');
+        const telefone = interaction.fields.getTextInputValue('telefone');
+
+        if (!/^\d+$/.test(id)) {
+          return interaction.reply({ content: '❌ ID inválido!', flags: 64 });
+        }
+
+        // Cria o canal temporário com o prefixo transf-
+        const nomeCanal = `transf-${nome.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`;
+        const canal = await interaction.guild.channels.create({
+          name: nomeCanal,
+          topic: interaction.user.id,
+          type: ChannelType.GuildText,
+          parent: config.categoriaTickets,
+          permissionOverwrites: [
+            { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+            { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
+            { id: interaction.client.user.id, allow: [PermissionsBitField.Flags.ViewChannel] },
+            ...config.cargosRecrutadores.map(c => ({ id: c, allow: [PermissionsBitField.Flags.ViewChannel] }))
+          ]
+        });
+
+        const roleDesejada = interaction.guild.roles.cache.get(dados.cargoDesejado);
+
+        // Monta a Embed com as duas novas informações em destaque (Origem e Cargo Desejado)
+        const embed = new EmbedBuilder()
+          .setTitle('🔄 Nova Transferência Externa')
+          .setColor(0x3498db) // Azul
+          .addFields(
+            { name: 'Nome', value: nome },
+            { name: 'Sobrenome', value: sobrenome },
+            { name: 'ID', value: id },
+            { name: 'Telefone', value: telefone },
+            { name: '🏢 Vindo de (Origem)', value: dados.origemBatalhao },
+            { name: '🏷️ Cargo Desejado', value: roleDesejada ? roleDesejada.name : dados.cargoDesejado }
+          );
+
+        // Botão modificado apontando para a finalização exclusiva de transferência
+        const botoes = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId(`aprovar_transf_${dados.cargoDesejado}`)
+            .setLabel('Aprovar Transferência')
+            .setStyle(ButtonStyle.Primary),
+          new ButtonBuilder()
+            .setCustomId('reprovar') // Reaproveita o seu reprovar padrão que já deleta o canal
+            .setLabel('Reprovar')
+            .setStyle(ButtonStyle.Danger)
+        );
+
+        await canal.send({ embeds: [embed], components: [botoes] });
+        
+        delete dadosTemp[interaction.user.id];
+
+        return interaction.reply({ content: '✅ Canal de transferência criado!', flags: 64 });
+      }
+
+      // ========================================================
+      // ===== 5º PASSO: RECRUTADOR CLICA EM APROVAR TRANSFERÊNCIA =====
+      // ========================================================
+      if (interaction.isButton() && interaction.customId.startsWith('aprovar_transf_')) {
+        const temPermissao = interaction.member.roles.cache.some(role =>
+          config.cargosRecrutadores.includes(role.id)
+        );
+
+        if (!temPermissao) {
+          return interaction.reply({ content: '❌ Sem permissão.', flags: 64 });
+        }
+
+        await interaction.deferUpdate();
+
+        const cargoEscolhido = interaction.customId.split('_')[2];
+        const membro = interaction.guild.members.cache.get(interaction.channel.topic);
+        if (!membro) return;
+
+        const embed = interaction.message.embeds[0];
+        const getField = (n) => embed.data.fields.find(f => f.name === n)?.value || '';
+
+        const id = getField('ID');
+        const nome = getField('Nome');
+        const origemBatalhao = getField('🏢 Vindo de (Origem)');
+
+        const sistema = config.cargosSistema[cargoEscolhido];
+        if (!sistema) return console.log('⚠️ Cargo não configurado');
+
+        // Formata o nickname
+        let nickname = `[${sistema.nome}] ${nome} | ${id}`;
+        if (nickname.length > 32) nickname = `[${sistema.nome}] ${nome}`.slice(0, 32);
+        await membro.setNickname(nickname).catch(() => {});
+
+        // Entrega os cargos definidos na configuração
+        const cargos = [
+          cargoEscolhido,
+          ...(sistema.extra || [])
+        ];
+        await membro.roles.add(cargos);
+
+                // ===== REGISTRO CENTRAL DE TRANSFERÊNCIA =====
+        const canalRegistro = interaction.guild.channels.cache.get('1554307411202805821');
+        if (canalRegistro && typeof canalRegistro.send === 'function') {
+          const linha = `| ----------------------------------------------------------------|`;
+          const mensagem = `\n🔄 **Registro de Transferência**\n\n👤 **Nome:** ${nome}\n🆔 **ID:** ${id}\n🏢 **Origem:** ${origemBatalhao}\n🏷️ **Cargo Concedido:** ${sistema.nome}\n🧑‍💼 **Processado por:** ${interaction.member.displayName}\n\n${linha}\n`;
+          await canalRegistro.send(mensagem).catch(err => console.error("Erro no Registro Central:", err));
+        }
+
+        // ===== LOG DE APROVAÇÕES =====
+        const log = interaction.guild.channels.cache.get(config.logAprovacoes);
+        if (log && typeof log.send === 'function') {
+          await log.send(`🔄 ${membro.user.tag} transferido da **${origemBatalhao}** por ${interaction.user.tag}\nCargo: ${sistema.nome}`).catch(err => console.error(err));
+        }
+
+        await interaction.message.edit({ content: '✅ Transferência Finalizada!', components: [] });
+        setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
+      }
+
     } catch (err) {
       console.error('💥 ERRO DETALHADO:', err);
 
