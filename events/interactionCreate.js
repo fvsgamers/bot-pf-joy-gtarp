@@ -499,40 +499,33 @@ if (interaction.isButton() && interaction.customId.startsWith('aprovarTransf-'))
 
   await interaction.deferUpdate();
 
-  // 🔍 DIAGNÓSTICO 1: Ver o que o botão está trazendo de fato
-  console.log('📌 [DEBUG] customId completo do botão clicado:', interaction.customId);
-
-  // Extrai apenas a string numérica do ID contida no customId
+  // Extrai apenas a string numérica do ID contida no customId do botão
   const matchID = interaction.customId.match(/\d+/);
-  
-  // 🔍 DIAGNÓSTICO 2: Ver o resultado bruto do Regex match
-  console.log('📌 [DEBUG] Resultado do matchID:', matchID);
-
   if (!matchID) return console.log('⚠️ Nenhum ID numérico de cargo foi encontrado no botão.');
-  
-  // CORREÇÃO DEFINITIVA: Pega estritamente a primeira posição do array retornado pelo .match()
   const cargoEscolhido = String(matchID[0]); 
 
-  // 🔍 DIAGNÓSTICO 3: Ver a ID final limpa antes de checar no config
-  console.log('📌 [DEBUG] cargoEscolhido (ID Limpa):', cargoEscolhido);
+  // Busca as configurações do cargo no seu config.json
+  const sistema = config.cargosTransferencia[cargoEscolhido];
+  if (!sistema) {
+    console.log(`❌ ERRO: O ID extraído foi "${cargoEscolhido}", mas ele não existe em config.cargosTransferencia.`);
+    return;
+  }
 
-  // Busca o membro (o dono do ticket) usando o ID salvo no tópico do canal
+  // Busca o membro dono do ticket
   const membro = interaction.guild.members.cache.get(interaction.channel.topic);
   if (!membro) return console.log('⚠️ Membro dono do ticket não encontrado no servidor.');
 
-  const embedOriginal = interaction.message.embeds[0]; // Voltando para índice 0 para checagem
-  if (!embedOriginal) return console.log('⚠️ Nenhuma embed encontrada na mensagem.');
-
-  // Acessa os campos usando .data.fields ou .fields baseado no Discord.js v14
-  const fieldsSource = embedOriginal.data?.fields || embedOriginal.fields || [];
-  const getField = (n) => fieldsSource.find(f => f.name === n)?.value || '';
+  // Leitura da Embed exatamente igual ao seu código que funciona perfeitamente
+  const embed = interaction.message.embeds[0];
+  if (!embed) return console.log('⚠️ Nenhuma embed encontrada na mensagem.');
+  
+  const getField = (n) => embed.data?.fields?.find(f => f.name === n)?.value || '';
 
   const id = getField('ID');
   const nome = getField('Nome');
-  const cargoOrigemMencao = getField('🏢 Instituição de Origem');
-  const origemID = getField('🏢 Vindo de (Origem ID)').trim(); 
+  const cargoOrigemMencao = getField('🏢 Instituição de Origem'); // Usado apenas para o log de registro
 
-  // MAPEAMENTO DE SIGLAS
+  // MAPEAMENTO DE SIGLAS DIRETO PELO CARGO ESCOLHIDO
   const mapaSiglas = {
     "1554288806167846952": "TR.PRF",
     "1554288699745771701": "TR.PM", 
@@ -540,26 +533,15 @@ if (interaction.isButton() && interaction.customId.startsWith('aprovarTransf-'))
     "1554288869917065236": "TR.EB" 
   };
 
-  const siglaOrigem = mapaSiglas[origemID] || "TR";
+  // Define a sigla com base no cargo selecionado (se não achar nenhum dos 4, usa "TR")
+  const siglaOrigem = mapaSiglas[cargoEscolhido] || "TR";
 
-  // BUSCA NO CONFIG
-  const sistema = config.cargosTransferencia[cargoEscolhido];
-  if (!sistema) {
-    console.log(`❌ ERRO: O ID extraído pelo bot foi "${cargoEscolhido}" (${typeof cargoEscolhido}), mas ele não existe em config.cargosTransferencia.`);
-    // 🔍 DIAGNÓSTICO 4: Lista quais IDs existem de verdade no seu config para comparação
-    console.log('📌 [DEBUG] IDs existentes no config.cargosTransferencia:', Object.keys(config.cargosTransferencia));
-    return;
-  }
-
-  // ... (o restante do seu código de setagem e registros continua igual abaixo)
-
-
-  // Formata e altera o apelido com base na sigla correta
+  // Formata e altera o apelido com a sigla correta
   let nickname = `[${siglaOrigem}] ${nome} | ${id}`;
   if (nickname.length > 32) nickname = `[${siglaOrigem}] ${nome}`.slice(0, 32);
   await membro.setNickname(nickname).catch((err) => console.error("Erro ao alterar nickname:", err.message));
 
-  // Adiciona os cargos mapeados (O cargo principal + a lista de extras do config)
+  // Monta e adiciona a lista de cargos (Cargo Escolhido + Extras do config)
   const cargos = [
     cargoEscolhido,
     ...(sistema.extra || [])
@@ -570,21 +552,20 @@ if (interaction.isButton() && interaction.customId.startsWith('aprovarTransf-'))
   const canalRegistro = interaction.guild.channels.cache.get('1554307411202805821');
   if (canalRegistro && typeof canalRegistro.send === 'function') {
     const linha = `| ----------------------------------------------------------------|`;
-    const mensagem = `\n🔄 **Registro de Transferência**\n\n👤 **Nome:** ${nome}\n🆔 **ID:** ${id}\n🏢 **Origem:** ${cargoOrigemMencao}\n🏷️ **Cargo Concedido:** ${sistema.nome}\n🧑‍💼 **Processado por:** ${interaction.member.displayName}\n\n${linha}\n`;
+    const mensagem = `\n🔄 **Registro de Transferência**\n\n👤 **Nome:** ${nome}\n🆔 **ID:** ${id}\n🏢 **Origem:** ${cargoOrigemMencao || 'Não informada'}\n🏷️ **Cargo Concedido:** ${sistema.nome}\n🧑‍💼 **Processado por:** ${interaction.member.displayName}\n\n${linha}\n`;
     await canalRegistro.send(mensagem).catch(err => console.error("Erro no Registro Central:", err));
   }
 
   // ===== LOG DE APROVAÇÕES =====
   const log = interaction.guild.channels.cache.get(config.logAprovacoes);
   if (log && typeof log.send === 'function') {
-    await log.send(`🔄 ${membro.user.tag} transferido da instituição **${cargoOrigemMencao}** por ${interaction.user.tag}\nCargo: ${sistema.nome}`).catch(err => console.error(err));
+    await log.send(`🔄 ${membro.user.tag} transferido por ${interaction.user.tag}\nCargo: ${sistema.nome}`).catch(err => console.error(err));
   }
 
+  // Finaliza o ticket
   await interaction.message.edit({ content: '✅ Transferência Finalizada!', components: [] });
   setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
 }
-
-
 
     } catch (err) {
       console.error('💥 ERRO DETALHADO:', err);
