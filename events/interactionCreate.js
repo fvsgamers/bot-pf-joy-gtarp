@@ -328,16 +328,17 @@ module.exports = (client) => {
       if (interaction.isButton() && interaction.customId === 'abrir_transferencia') {
         const { StringSelectMenuBuilder, ActionRowBuilder } = require('discord.js');
 
+        // Monta as opções dinamicamente usando os IDs dos cargos configurados
+        const opcoesOrigem = Object.entries(config.instituicoesOrigem).map(([id, nome]) => ({
+          label: nome,
+          value: String(id) // Passa o ID puro do cargo como valor
+        }));
+
         const selectOrigem = new ActionRowBuilder().addComponents(
           new StringSelectMenuBuilder()
             .setCustomId('transf_select_origem')
             .setPlaceholder('Selecione sua instituição de origem')
-            .addOptions([
-              { label: 'Polícia Rodoviária Federal (PRF)', value: 'Polícia Rodoviária Federal' },
-              { label: 'Polícia Civil', value: 'Polícia Civil' },
-              { label: 'Exército Brasileiro', value: 'Exército Brasileiro' },
-              { label: 'Polícia Militar', value: 'Polícia Militar' }
-            ])
+            .addOptions(opcoesOrigem)
         );
 
         dadosTemp[interaction.user.id] = { tipoFlow: 'transferencia' };
@@ -358,18 +359,20 @@ module.exports = (client) => {
         const dados = dadosTemp[interaction.user.id];
         if (!dados) return interaction.reply({ content: '❌ Sessão expirada. Inicie novamente.', flags: 64 });
 
-        // CORREÇÃO 1: Pegamos a string pura usando o índice [0] (Texto: 'Polícia Civil', 'Polícia Militar', etc.)
-        dados.origemBatalhao = interaction.values[0]; 
+        // Guarda o ID do cargo de origem selecionado
+        dados.origemBatalhaoID = interaction.values; 
+        
+        // Pega o nome amigável para exibir na mensagem de transição
+        const nomeInstituicao = config.instituicoesOrigem[dados.origemBatalhaoID] || 'Instituição Desconhecida';
 
-        // Monta a lista extraindo as chaves (que já são os IDs em formato string limpa)
-        const cargosOptions = Object.entries(config.cargosSistema)
-          .map(([id, data]) => {
-            const role = interaction.guild.roles.cache.get(id);
-            return {
-              label: role ? role.name : data.nome,
-              value: String(id) // CORREÇÃO 2: Força o ID a ser enviado como texto limpo
-            };
-          });
+        // Monta a lista de cargos desejados
+        const cargosOptions = Object.entries(config.cargosSistema).map(([id, data]) => {
+          const role = interaction.guild.roles.cache.get(id);
+          return {
+            label: role ? role.name : data.nome,
+            value: String(id)
+          };
+        });
 
         const selectCargo = new ActionRowBuilder().addComponents(
           new StringSelectMenuBuilder()
@@ -379,10 +382,11 @@ module.exports = (client) => {
         );
 
         return interaction.update({
-          content: `🏢 Origem selecionada: **${dados.origemBatalhao}**\n\nAgora, selecione o **Cargo Desejado**:`,
+          content: `🏢 Origem selecionada: **${nomeInstituicao}**\n\nAgora, selecione o **Cargo Desejado**:`,
           components: [selectCargo]
         });
       }
+
 
       // ========================================================
       // ===== 3º PASSO: APÓS ESCOLHER O CARGO, ABRE O MODAL DADOS =====
