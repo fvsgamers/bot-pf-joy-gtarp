@@ -289,10 +289,10 @@ module.exports = (client) => {
           canalRegistro.send(mensagem);
         }
 
-        const log = interaction.guild.channels.cache.get(config.logAprovacoes);
-        if (log) {
-          log.send(`✅ ${membro.user.tag} aprovado por ${interaction.user.tag}\nCargo: ${sistema.nome}\nApelido: ${nickname}`);
-        }
+        //const log = interaction.guild.channels.cache.get(config.logAprovacoes);
+        //if (log) {
+        //  log.send(`✅ ${membro.user.tag} aprovado por ${interaction.user.tag}\nCargo: ${sistema.nome}\nApelido: ${nickname}`);
+        //}
 
         await interaction.message.edit({ content: '✅ Aprovado!', components: [] });
 
