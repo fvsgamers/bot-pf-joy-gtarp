@@ -946,44 +946,37 @@ if (
   // PROCURA NO CONFIG
   // ======================================================
 
-  const sistemaT =
-    config.cargosTransferencia?.[
-      cargoEscolhido
-    ];
+  const cargoId = String(cargoEscolhido).trim();
 
-  console.log(
-    'Config encontrado:',
-    sistemaT
-  );
+const sistemaT = config.cargosTransferencia?.[cargoId];
 
-  if (!sistemaT) {
+console.log('========================================');
+console.log('🏷️ VERIFICAÇÃO DO CARGO');
+console.log('Cargo recebido:', cargoEscolhido);
+console.log('Cargo normalizado:', cargoId);
+console.log('Tipo:', typeof cargoEscolhido);
+console.log('Config encontrado:', sistemaT);
+console.log('========================================');
 
-    console.error(
-      '❌ ERRO: cargo não configurado'
-    );
-
-    console.error(
-      'ID recebido:',
-      cargoEscolhido
-    );
+if (!sistemaT) {
+    console.error('❌ ERRO: cargo não configurado');
+    console.error('ID recebido:', cargoId);
 
     console.error(
-      'IDs existentes:',
-      Object.keys(
-        config.cargosTransferencia || {}
-      )
+        'IDs existentes:',
+        Object.keys(config.cargosTransferencia || {})
     );
 
     return interaction.reply({
-      content:
-        `❌ **Cargo não configurado.**\n\n` +
-        `ID recebido pelo botão:\n` +
-        `\`${cargoEscolhido}\``,
-      flags: 64
+        content:
+            `❌ **Cargo não configurado.**\n\n` +
+            `ID recebido pelo botão:\n` +
+            `\`${cargoId}\``,
+        flags: 64
     });
-  }
+}
 
-  // ======================================================
+    // ======================================================
   // BUSCA ROLE
   // ======================================================
 
