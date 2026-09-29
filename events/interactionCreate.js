@@ -548,6 +548,23 @@ if (
       : 'NÃO ENCONTRADO'
   );
 
+  console.log('========================================');
+console.log('🔍 TESTE FINAL DE CONFIGURAÇÃO');
+console.log('cargoEscolhido:', cargoEscolhido);
+console.log('cargoId:', cargoId);
+
+console.log(
+  'cargosTransferencia:',
+  config.cargosTransferencia?.[cargoId]
+);
+
+console.log(
+  'cargosSistema:',
+  config.cargosSistema?.[cargoId]
+);
+
+console.log('========================================');
+
   if (!role) {
     return interaction.reply({
       content:
