@@ -388,55 +388,57 @@ if (
 
   if (!dados) {
     return interaction.reply({
-      content:
-        '❌ Sua sessão expirou. Clique novamente em iniciar transferência.',
+      content: '❌ Sessão expirada. Inicie novamente.',
       flags: 64
     });
   }
 
   // IMPORTANTE:
   // interaction.values é ARRAY.
-  // Aqui precisamos salvar somente o primeiro valor.
-  dados.origemBatalhaoID = String(
-    interaction.values[0]
-  ).trim();
+  // Precisamos pegar somente o ID selecionado.
+  const origemID = String(interaction.values[0]).trim();
 
+  dados.origemBatalhaoID = origemID;
+
+  console.log('========================================');
+  console.log('🏢 ORIGEM DA TRANSFERÊNCIA');
+  console.log('ID:', origemID);
   console.log(
-    '🏢 Instituição de origem selecionada:',
-    dados.origemBatalhaoID
+    'Nome:',
+    config.instituicoesOrigem?.[origemID]
   );
+  console.log('========================================');
 
-  // Nome da instituição
   const nomeInstituicao =
-    config.instituicoesOrigem?.[dados.origemBatalhaoID] ||
+    config.instituicoesOrigem?.[origemID] ||
     'Instituição Desconhecida';
 
   // ======================================================
-  // MONTA OS CARGOS DISPONÍVEIS PARA TRANSFERÊNCIA
+  // MONTA CARGOS DESEJADOS
   // ======================================================
 
-  const cargosConfigurados =
+  const cargosTransferencia =
     config.cargosTransferencia || {};
 
-  const cargosOptionsT = Object.entries(
-    cargosConfigurados
+  const opcoesCargo = Object.entries(
+    cargosTransferencia
   ).map(([id, data]) => {
 
     const role =
-      interaction.guild.roles.cache.get(String(id));
+      interaction.guild.roles.cache.get(id);
 
     return {
       label: String(
         role?.name ||
         data?.nome ||
         'Cargo não definido'
-      ).slice(0, 100),
+      ).substring(0, 100),
 
       value: String(id)
     };
   });
 
-  if (cargosOptionsT.length === 0) {
+  if (opcoesCargo.length === 0) {
     return interaction.update({
       content:
         '❌ Nenhum cargo de transferência está configurado.',
@@ -444,25 +446,24 @@ if (
     });
   }
 
-  const selectCargoT =
+  const selectCargo =
     new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()
         .setCustomId('transf_select_cargo')
         .setPlaceholder('Selecione o cargo desejado')
-        .addOptions(cargosOptionsT)
+        .addOptions(opcoesCargo)
     );
 
   return interaction.update({
     content:
-      `🏢 **Origem selecionada:** ${nomeInstituicao}\n\n` +
-      `🏷️ **Agora, selecione o Cargo Desejado:**`,
-    components: [selectCargoT]
+      `🏢 **Instituição de origem:** ${nomeInstituicao}\n\n` +
+      `🏷️ **Selecione agora o cargo desejado:**`,
+    components: [selectCargo]
   });
 }
 
-
 // ========================================================
-// ===== 3º PASSO: SELECIONA O CARGO E ABRE O MODAL
+// ===== 3º PASSO: SELECIONA CARGO DESEJADO
 // ========================================================
 if (
   interaction.isStringSelectMenu() &&
@@ -480,37 +481,86 @@ if (
   if (!dados) {
     return interaction.reply({
       content:
-        '❌ Sua sessão expirou. Inicie a transferência novamente.',
+        '❌ Sessão expirada. Inicie novamente.',
       flags: 64
     });
   }
 
-  // Pega somente o valor selecionado
-  dados.cargoDesejado =
+  // PEGA O ID DO CARGO
+  const cargoID =
     String(interaction.values[0]).trim();
 
+  dados.cargoDesejado = cargoID;
+
+  console.log('========================================');
+  console.log('🏷️ CARGO DESEJADO');
+  console.log('ID:', cargoID);
   console.log(
-    '🏷️ Cargo desejado selecionado:',
-    dados.cargoDesejado
+    'Config:',
+    config.cargosTransferencia?.[cargoID]
   );
+  console.log('========================================');
 
-  // Confirma se o cargo existe na configuração
-  const sistema =
-    config.cargosTransferencia?.[dados.cargoDesejado];
+  // ======================================================
+  // PROCURA O CARGO NO CONFIG
+  // ======================================================
 
-  if (!sistema) {
+  const cargoConfig =
+    config.cargosTransferencia?.[cargoID];
+
+  if (!cargoConfig) {
+
     console.error(
-      '❌ Cargo selecionado não existe em config.cargosTransferencia:',
-      dados.cargoDesejado
+      '❌ CARGO NÃO EXISTE EM cargosTransferencia'
+    );
+
+    console.error(
+      'ID recebido:',
+      cargoID
+    );
+
+    console.error(
+      'IDs disponíveis:',
+      Object.keys(
+        config.cargosTransferencia || {}
+      )
     );
 
     return interaction.reply({
       content:
         `❌ O cargo selecionado não está configurado.\n\n` +
-        `ID recebido: \`${dados.cargoDesejado}\``,
+        `ID recebido: \`${cargoID}\``,
       flags: 64
     });
   }
+
+  // ======================================================
+  // PROCURA O ROLE NO DISCORD
+  // ======================================================
+
+  const role =
+    interaction.guild.roles.cache.get(cargoID);
+
+  console.log(
+    'Cargo encontrado no Discord:',
+    role
+      ? `${role.name} (${role.id})`
+      : 'NÃO ENCONTRADO'
+  );
+
+  if (!role) {
+    return interaction.reply({
+      content:
+        `❌ O cargo está no config.json, mas não existe neste servidor.\n\n` +
+        `ID: \`${cargoID}\`\n` +
+        `Configuração: **${cargoConfig.nome}**`,
+      flags: 64
+    });
+  }
+
+  // ======================================================
+  // ABRE MODAL
+  // ======================================================
 
   const modal =
     new ModalBuilder()
@@ -523,49 +573,40 @@ if (
       new TextInputBuilder()
         .setCustomId('nome')
         .setLabel('Nome')
-        .setPlaceholder('Digite o nome')
         .setStyle(TextInputStyle.Short)
         .setRequired(true)
-        .setMaxLength(50)
     ),
 
     new ActionRowBuilder().addComponents(
       new TextInputBuilder()
         .setCustomId('sobrenome')
         .setLabel('Sobrenome')
-        .setPlaceholder('Digite o sobrenome')
         .setStyle(TextInputStyle.Short)
         .setRequired(true)
-        .setMaxLength(50)
     ),
 
     new ActionRowBuilder().addComponents(
       new TextInputBuilder()
         .setCustomId('id')
         .setLabel('ID (somente números)')
-        .setPlaceholder('Exemplo: 1234')
         .setStyle(TextInputStyle.Short)
         .setRequired(true)
-        .setMaxLength(10)
     ),
 
     new ActionRowBuilder().addComponents(
       new TextInputBuilder()
         .setCustomId('telefone')
         .setLabel('Telefone (in-game)')
-        .setPlaceholder('Digite o telefone')
         .setStyle(TextInputStyle.Short)
         .setRequired(true)
-        .setMaxLength(30)
     )
   );
 
   return interaction.showModal(modal);
 }
-
-
+      
 // ========================================================
-// ===== 4º PASSO: RECEBE O MODAL E CRIA O TICKET
+// ===== 4º PASSO: RECEBE MODAL E CRIA TICKET
 // ========================================================
 if (
   interaction.isModalSubmit() &&
@@ -586,14 +627,10 @@ if (
   if (!dados) {
     return interaction.reply({
       content:
-        '❌ Os dados da transferência expiraram.',
+        '❌ Dados expirados. Inicie novamente.',
       flags: 64
     });
   }
-
-  // ======================================================
-  // PEGA DADOS DO MODAL
-  // ======================================================
 
   const nome =
     interaction.fields
@@ -628,44 +665,25 @@ if (
   }
 
   // ======================================================
-  // VALIDA ORIGEM
+  // PEGA CONFIGURAÇÃO DO CARGO
   // ======================================================
 
-  if (!dados.origemBatalhaoID) {
-    return interaction.reply({
-      content:
-        '❌ A instituição de origem não foi identificada.',
-      flags: 64
-    });
-  }
-
-  // ======================================================
-  // VALIDA CARGO
-  // ======================================================
-
-  if (!dados.cargoDesejado) {
-    return interaction.reply({
-      content:
-        '❌ O cargo desejado não foi identificado.',
-      flags: 64
-    });
-  }
-
-  const sistema =
+  const cargoConfig =
     config.cargosTransferencia?.[
       dados.cargoDesejado
     ];
 
-  if (!sistema) {
+  if (!cargoConfig) {
     return interaction.reply({
       content:
-        `❌ O cargo \`${dados.cargoDesejado}\` não está configurado.`,
+        `❌ Cargo não configurado.\n\n` +
+        `ID do cargo: \`${dados.cargoDesejado}\``,
       flags: 64
     });
   }
 
   // ======================================================
-  // BUSCA O CARGO NO SERVIDOR
+  // PEGA ROLE
   // ======================================================
 
   const roleDesejada =
@@ -676,14 +694,25 @@ if (
   if (!roleDesejada) {
     return interaction.reply({
       content:
-        `❌ O cargo configurado não existe no servidor.\n\n` +
-        `ID: \`${dados.cargoDesejado}\``,
+        `❌ O cargo não existe no servidor.\n\n` +
+        `ID: \`${dados.cargoDesejado}\`\n` +
+        `Configuração: **${cargoConfig.nome}**`,
       flags: 64
     });
   }
 
   // ======================================================
-  // NOME DO CANAL
+  // ORIGEM
+  // ======================================================
+
+  const nomeOrigem =
+    config.instituicoesOrigem?.[
+      dados.origemBatalhaoID
+    ] ||
+    'Instituição Desconhecida';
+
+  // ======================================================
+  // CANAL
   // ======================================================
 
   let nomeCanal =
@@ -696,15 +725,11 @@ if (
       nomeCanal.substring(0, 90);
   }
 
-  // ======================================================
-  // CRIA TICKET
-  // ======================================================
-
   const canal =
     await interaction.guild.channels.create({
       name: nomeCanal,
 
-      // Guardamos o ID do usuário no tópico
+      // ID do usuário
       topic: interaction.user.id,
 
       type: ChannelType.GuildText,
@@ -741,30 +766,17 @@ if (
           ]
         },
 
-        ...(
-          config.cargosRecrutadores || []
-        ).map(cargoID => ({
-          id: cargoID,
-
-          allow: [
-            PermissionsBitField.Flags.ViewChannel,
-            PermissionsBitField.Flags.SendMessages,
-            PermissionsBitField.Flags.ReadMessageHistory
-          ]
-        }))
+        ...(config.cargosRecrutadores || [])
+          .map(cargoID => ({
+            id: cargoID,
+            allow: [
+              PermissionsBitField.Flags.ViewChannel,
+              PermissionsBitField.Flags.SendMessages,
+              PermissionsBitField.Flags.ReadMessageHistory
+            ]
+          }))
       ]
     });
-
-  // ======================================================
-  // MENÇÃO DA ORIGEM
-  // ======================================================
-
-  const cargoOrigemMencao =
-    interaction.guild.roles.cache.has(
-      dados.origemBatalhaoID
-    )
-      ? `<@&${dados.origemBatalhaoID}>`
-      : 'Não informado';
 
   // ======================================================
   // EMBED
@@ -776,64 +788,59 @@ if (
         '🔄 Nova Solicitação de Transferência'
       )
       .setColor(0x3498db)
+
       .addFields(
 
         {
           name: '👤 Nome',
-          value: nome || 'Não informado',
-          inline: true
+          value: nome
         },
 
         {
           name: '👤 Sobrenome',
-          value: sobrenome || 'Não informado',
-          inline: true
+          value: sobrenome
         },
 
         {
           name: '🆔 ID',
-          value: id || 'Não informado',
-          inline: true
+          value: id
         },
 
         {
           name: '📱 Telefone',
-          value: telefone || 'Não informado',
-          inline: true
+          value: telefone
         },
 
         {
           name: '🏢 Instituição de Origem',
-          value: cargoOrigemMencao,
-          inline: true
+          value:
+            `<@&${dados.origemBatalhaoID}>`
         },
 
         {
-          name: '🏢 ID da Origem',
-          value: String(
+          name: '🏢 ID Origem',
+          value:
             dados.origemBatalhaoID
-          ),
-          inline: true
         },
 
         {
           name: '🏷️ Cargo Desejado',
-          value: roleDesejada.name,
-          inline: true
+          value:
+            `${roleDesejada.name}`
         },
 
         {
-          name: '🏷️ ID do Cargo',
-          value: String(
+          name: '🏷️ ID Cargo',
+          value:
             dados.cargoDesejado
-          ),
-          inline: true
         }
       )
+
       .setFooter({
         text:
-          `Solicitação criada por ${interaction.user.tag}`
+          `Origem: ${nomeOrigem}`
       })
+
       .setTimestamp();
 
   // ======================================================
@@ -866,28 +873,23 @@ if (
         )
     );
 
-  // ======================================================
-  // ENVIA TICKET
-  // ======================================================
-
   await canal.send({
     embeds: [embed],
     components: [botoes]
   });
 
-  // Apaga sessão temporária
   delete dadosTemp[interaction.user.id];
 
   return interaction.reply({
     content:
-      `✅ **Canal de transferência criado!**\n\n` +
-      `🏷️ Cargo solicitado: **${roleDesejada.name}**`,
+      `✅ Canal de transferência criado!\n\n` +
+      `🏢 Origem: **${nomeOrigem}**\n` +
+      `🏷️ Cargo: **${roleDesejada.name}**`,
     flags: 64
   });
 }
 
-
-// ========================================================
+      // ========================================================
 // ===== 5º PASSO: APROVAR TRANSFERÊNCIA
 // ========================================================
 if (
@@ -895,19 +897,16 @@ if (
   interaction.customId.startsWith('aprovarTransf-')
 ) {
 
-  const {
-    EmbedBuilder
-  } = require('discord.js');
-
   // ======================================================
-  // 1. VERIFICA PERMISSÃO
+  // PERMISSÃO
   // ======================================================
 
   const temPermissao =
     interaction.member.roles.cache.some(
       role =>
-        (config.cargosRecrutadores || [])
-          .includes(role.id)
+        config.cargosRecrutadores.includes(
+          role.id
+        )
     );
 
   if (!temPermissao) {
@@ -919,7 +918,7 @@ if (
   }
 
   // ======================================================
-  // 2. PEGA O ID DO CARGO
+  // PEGA ID DO CARGO
   // ======================================================
 
   const cargoEscolhido =
@@ -930,38 +929,21 @@ if (
       )
       .trim();
 
+  console.log('');
+  console.log('==========================================');
+  console.log('🔄 APROVAÇÃO DE TRANSFERÊNCIA');
+  console.log('==========================================');
   console.log(
-    '========================================'
-  );
-
-  console.log(
-    '🔄 APROVAÇÃO DE TRANSFERÊNCIA'
-  );
-
-  console.log(
-    'Custom ID:',
+    'CustomID:',
     interaction.customId
   );
-
   console.log(
-    'Cargo escolhido:',
+    'Cargo recebido:',
     cargoEscolhido
   );
 
-  console.log(
-    '========================================'
-  );
-
-  if (!/^\d+$/.test(cargoEscolhido)) {
-    return interaction.reply({
-      content:
-        '❌ O ID do cargo recebido é inválido.',
-      flags: 64
-    });
-  }
-
   // ======================================================
-  // 3. BUSCA CONFIGURAÇÃO
+  // PROCURA NO CONFIG
   // ======================================================
 
   const sistema =
@@ -969,10 +951,15 @@ if (
       cargoEscolhido
     ];
 
+  console.log(
+    'Config encontrado:',
+    sistema
+  );
+
   if (!sistema) {
 
     console.error(
-      '❌ CARGO NÃO ENCONTRADO NO CONFIG'
+      '❌ ERRO: cargo não configurado'
     );
 
     console.error(
@@ -981,7 +968,7 @@ if (
     );
 
     console.error(
-      'Cargos configurados:',
+      'IDs existentes:',
       Object.keys(
         config.cargosTransferencia || {}
       )
@@ -989,19 +976,15 @@ if (
 
     return interaction.reply({
       content:
-        `❌ Este cargo não está configurado no sistema.\n\n` +
-        `ID recebido: \`${cargoEscolhido}\``,
+        `❌ **Cargo não configurado.**\n\n` +
+        `ID recebido pelo botão:\n` +
+        `\`${cargoEscolhido}\``,
       flags: 64
     });
   }
 
-  console.log(
-    '✅ Configuração encontrada:',
-    sistema
-  );
-
   // ======================================================
-  // 4. BUSCA CARGO NO DISCORD
+  // BUSCA ROLE
   // ======================================================
 
   const rolePrincipal =
@@ -1009,117 +992,66 @@ if (
       cargoEscolhido
     );
 
-  if (!rolePrincipal) {
-
-    console.error(
-      `❌ Cargo ${cargoEscolhido} não encontrado no servidor.`
-    );
-
-    return interaction.reply({
-      content:
-        `❌ O cargo não foi encontrado no servidor.\n\n` +
-        `ID: \`${cargoEscolhido}\``,
-      flags: 64
-    });
-  }
-
   console.log(
-    `✅ Cargo encontrado: ${rolePrincipal.name}`
+    'Role encontrado:',
+    rolePrincipal
+      ? `${rolePrincipal.name} (${rolePrincipal.id})`
+      : 'NÃO'
   );
 
-  // ======================================================
-  // 5. VERIFICA HIERARQUIA DO BOT
-  // ======================================================
-
-  const botMember =
-    interaction.guild.members.me;
-
-  if (!botMember) {
-    return interaction.reply({
-      content:
-        '❌ Não consegui identificar o membro do bot.',
-      flags: 64
-    });
-  }
-
-  if (
-    rolePrincipal.position >=
-    botMember.roles.highest.position
-  ) {
-
-    console.error(
-      '❌ HIERARQUIA INSUFICIENTE'
-    );
-
-    console.error(
-      'Cargo:',
-      rolePrincipal.name,
-      rolePrincipal.position
-    );
-
-    console.error(
-      'Cargo mais alto do bot:',
-      botMember.roles.highest.name,
-      botMember.roles.highest.position
-    );
+  if (!rolePrincipal) {
 
     return interaction.reply({
       content:
-        `❌ Não posso adicionar **${rolePrincipal.name}**.\n\n` +
-        `O cargo do bot precisa estar **acima** desse cargo na hierarquia do servidor.`,
+        `❌ O cargo está configurado, mas não existe no servidor.\n\n` +
+        `ID: \`${cargoEscolhido}\`\n` +
+        `Configuração: **${sistema.nome}**`,
       flags: 64
     });
   }
 
   // ======================================================
-  // 6. BUSCA MEMBRO DONO DO TICKET
+  // MEMBRO DO TICKET
   // ======================================================
 
   const membro =
     await interaction.guild.members
-      .fetch(interaction.channel.topic)
+      .fetch(
+        interaction.channel.topic
+      )
       .catch(() => null);
 
   if (!membro) {
+
     return interaction.reply({
       content:
-        '❌ Não foi possível encontrar o membro dono deste ticket.',
+        '❌ Membro dono do ticket não encontrado.',
       flags: 64
     });
   }
 
-  console.log(
-    `👤 Membro encontrado: ${membro.user.tag}`
-  );
-
   // ======================================================
-  // 7. PEGA EMBED
+  // EMBED
   // ======================================================
 
   const embed =
     interaction.message.embeds[0];
 
   if (!embed) {
+
     return interaction.reply({
       content:
-        '❌ Não encontrei a ficha da transferência.',
+        '❌ Ficha de transferência não encontrada.',
       flags: 64
     });
   }
 
-  // ======================================================
-  // 8. FUNÇÃO PARA LER CAMPOS
-  // ======================================================
-
   const getField =
-    nomeCampo =>
+    nome =>
       embed.data?.fields?.find(
         field =>
-          field.name === nomeCampo
+          field.name === nome
       )?.value || '';
-
-  const id =
-    getField('🆔 ID');
 
   const nome =
     getField('👤 Nome');
@@ -1127,16 +1059,23 @@ if (
   const sobrenome =
     getField('👤 Sobrenome');
 
+  const id =
+    getField('🆔 ID');
+
   const telefone =
     getField('📱 Telefone');
 
-  const cargoOrigem =
-    getField(
-      '🏢 Instituição de Origem'
-    );
+  const origemID =
+    getField('🏢 ID Origem');
+
+  const origemNome =
+    config.instituicoesOrigem?.[
+      origemID
+    ] ||
+    'Instituição Desconhecida';
 
   // ======================================================
-  // 9. SIGLAS
+  // SIGLA DA ORIGEM
   // ======================================================
 
   const mapaSiglas = {
@@ -1154,16 +1093,16 @@ if (
       "TR.EB"
   };
 
-  const siglaOrigem =
-    mapaSiglas[cargoEscolhido] ||
+  const sigla =
+    mapaSiglas[origemID] ||
     'TR';
 
   // ======================================================
-  // 10. NICKNAME
+  // NICKNAME
   // ======================================================
 
   let nickname =
-    `[${siglaOrigem}] ${nome} | ${id}`;
+    `[${sigla}] ${nome} | ${id}`;
 
   if (nickname.length > 32) {
     nickname =
@@ -1172,74 +1111,51 @@ if (
 
   await membro
     .setNickname(nickname)
-    .catch(err => {
-
+    .catch(err =>
       console.error(
-        '❌ Erro ao alterar nickname:',
+        '❌ Erro no nickname:',
         err.message
-      );
-
-    });
+      )
+    );
 
   // ======================================================
-  // 11. MONTA CARGOS
+  // CARGOS
   // ======================================================
 
-  const cargosParaAdicionar = [
+  const cargosIDs = [
 
     cargoEscolhido,
 
-    ...(
-      Array.isArray(sistema.extra)
-        ? sistema.extra
-        : []
-    )
-  ]
-    .map(String)
-    .filter(
-      id =>
-        /^\d+$/.test(id)
-    );
+    ...(Array.isArray(sistema.extra)
+      ? sistema.extra
+      : [])
+  ];
 
   console.log(
-    '🎖️ Cargos para adicionar:',
-    cargosParaAdicionar
+    '🎖️ CARGOS A ADICIONAR:',
+    cargosIDs
   );
 
   // ======================================================
-  // 12. VALIDA CARGOS
+  // VALIDA CARGOS
   // ======================================================
 
-  const cargosValidos =
-    [];
+  const cargosValidos = [];
 
   for (
     const cargoID
-    of cargosParaAdicionar
+    of cargosIDs
   ) {
 
     const cargo =
       interaction.guild.roles.cache.get(
-        cargoID
+        String(cargoID)
       );
 
     if (!cargo) {
 
       console.error(
         `❌ Cargo não encontrado: ${cargoID}`
-      );
-
-      continue;
-    }
-
-    // Verifica hierarquia
-    if (
-      cargo.position >=
-      botMember.roles.highest.position
-    ) {
-
-      console.error(
-        `❌ Cargo acima do bot: ${cargo.name}`
       );
 
       continue;
@@ -1256,21 +1172,53 @@ if (
 
     return interaction.reply({
       content:
-        '❌ Nenhum dos cargos configurados pode ser adicionado pelo bot.',
+        '❌ Nenhum cargo válido foi encontrado.',
       flags: 64
     });
   }
 
-  console.log(
-    '✅ Cargos válidos:',
-    cargosValidos.map(
+  // ======================================================
+  // VERIFICA HIERARQUIA
+  // ======================================================
+
+  const botMember =
+    interaction.guild.members.me;
+
+  if (!botMember) {
+
+    return interaction.reply({
+      content:
+        '❌ Não consegui identificar o bot no servidor.',
+      flags: 64
+    });
+  }
+
+  const cargosBloqueados =
+    cargosValidos.filter(
       cargo =>
-        `${cargo.name} (${cargo.id})`
-    )
-  );
+        cargo.position >=
+        botMember.roles.highest.position
+    );
+
+  if (
+    cargosBloqueados.length > 0
+  ) {
+
+    return interaction.reply({
+      content:
+        `❌ Não consigo adicionar os seguintes cargos porque estão acima do meu cargo:\n\n` +
+        cargosBloqueados
+          .map(
+            cargo =>
+              `• ${cargo.name}`
+          )
+          .join('\n'),
+      flags: 64
+    });
+  }
 
   // ======================================================
-  // 13. ADICIONA CARGOS
+  // ADICIONA CARGOS
   // ======================================================
 
   try {
@@ -1280,26 +1228,26 @@ if (
     );
 
     console.log(
-      `✅ Cargos adicionados com sucesso para ${membro.user.tag}`
+      '✅ TODOS OS CARGOS FORAM ADICIONADOS!'
     );
 
-  } catch (err) {
+  } catch (erro) {
 
     console.error(
       '❌ ERRO AO ADICIONAR CARGOS:',
-      err
+      erro
     );
 
     return interaction.reply({
       content:
-        '❌ Não consegui adicionar os cargos.\n\n' +
-        'Verifique a permissão **Gerenciar Cargos** e a posição dos cargos na hierarquia.',
+        '❌ O Discord recusou a adição dos cargos.\n\n' +
+        'Verifique **Gerenciar Cargos** e a hierarquia do bot.',
       flags: 64
     });
   }
 
   // ======================================================
-  // 14. REGISTRO CENTRAL
+  // REGISTRO
   // ======================================================
 
   const canalRegistro =
@@ -1312,11 +1260,8 @@ if (
     typeof canalRegistro.send === 'function'
   ) {
 
-    const linha =
-      '------------------------------------------------';
-
-    const mensagem =
-      `🔄 **REGISTRO DE TRANSFERÊNCIA**\n\n` +
+    await canalRegistro.send(
+      `🔄 **Registro de Transferência**\n\n` +
 
       `👤 **Nome:** ${nome} ${sobrenome}\n` +
 
@@ -1324,26 +1269,16 @@ if (
 
       `📱 **Telefone:** ${telefone}\n` +
 
-      `🏢 **Origem:** ${cargoOrigem || 'Não informada'}\n` +
+      `🏢 **Origem:** ${origemNome}\n` +
 
       `🏷️ **Cargo Concedido:** ${rolePrincipal.name}\n` +
 
-      `🧑‍💼 **Processado por:** ${interaction.member.displayName}\n\n` +
-
-      `${linha}`;
-
-    await canalRegistro
-      .send(mensagem)
-      .catch(err =>
-        console.error(
-          '❌ Erro no Registro Central:',
-          err
-        )
-      );
+      `🧑‍💼 **Processado por:** ${interaction.member.displayName}`
+    );
   }
 
   // ======================================================
-  // 15. LOG DE APROVAÇÃO
+  // LOG
   // ======================================================
 
   const log =
@@ -1356,24 +1291,17 @@ if (
     typeof log.send === 'function'
   ) {
 
-    await log
-      .send(
-        `🔄 **Transferência aprovada**\n\n` +
-        `👤 ${membro.user.tag}\n` +
-        `🆔 ID: ${id}\n` +
-        `🏷️ Cargo: ${rolePrincipal.name}\n` +
-        `🧑‍💼 Processado por: ${interaction.user.tag}`
-      )
-      .catch(err =>
-        console.error(
-          '❌ Erro no log de aprovação:',
-          err
-        )
-      );
+    await log.send(
+      `🔄 **Transferência aprovada**\n` +
+      `👤 ${membro.user.tag}\n` +
+      `🆔 ID: ${id}\n` +
+      `🏷️ Cargo: ${rolePrincipal.name}\n` +
+      `🧑‍💼 Processado por: ${interaction.user.tag}`
+    );
   }
 
   // ======================================================
-  // 16. FINALIZA TICKET
+  // FINALIZA
   // ======================================================
 
   await interaction.message.edit({
@@ -1385,16 +1313,12 @@ if (
 
       `🆔 **ID:** ${id}\n` +
 
-      `🏷️ **Cargo:** ${rolePrincipal.name}\n\n` +
+      `🏢 **Origem:** ${origemNome}\n` +
 
-      `Processado por: ${interaction.member.displayName}`,
+      `🏷️ **Cargo:** ${rolePrincipal.name}`,
 
     components: []
   });
-
-  // ======================================================
-  // 17. DELETA TICKET
-  // ======================================================
 
   setTimeout(() => {
 
@@ -1404,7 +1328,7 @@ if (
 
   }, 5000);
 }
-
+      
     } catch (err) {
       console.error('💥 ERRO DETALHADO:', err);
 
