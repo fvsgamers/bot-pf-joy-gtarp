@@ -20,10 +20,23 @@
   "cargoStreamer": "1516662107570180116",
 
   "instituicoesOrigem": {
-    "1554288806167846952": "Polícia Rodoviária Federal",
-    "1554288699745771701": "Polícia Militar",
-    "1554288753672065084": "Polícia Civil",
-    "1554288869917065236": "Exército Brasileiro"
+    "1554288806167846952":
+    {
+      "prefixo": "TR.PRF"
+    },
+    "1554288699745771701":
+    {
+      "prefixo": "TR.PM"
+    },
+    "1554288753672065084": 
+    {
+      "prefixo": "TR.PC"
+    },
+    
+    "1554288869917065236":
+    {
+      "prefixo": "TR.EB"
+    }
   },
   
   "cargosSistema": {
